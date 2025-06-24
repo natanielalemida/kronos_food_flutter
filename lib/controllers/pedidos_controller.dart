@@ -404,10 +404,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         developer.log("Processando evento: ${event.code} - ${event.id}");
         await handleNewEvent(event);
 
-        // eventIds.add({"id": event.id});
       }
 
-      // Debug para verificar todos os pedidos após o processamento
       _logAllOrders();
     } finally {
       _batchNotifications = false;

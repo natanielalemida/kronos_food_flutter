@@ -1,4 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:printing/printing.dart';
 import 'package:kronos_food/components/order_delivery_info.dart';
 import 'package:kronos_food/components/order_items.dart';
 import 'package:kronos_food/components/order_payment_info.dart';
@@ -57,6 +64,58 @@ class _OrderDetailsState extends State<OrderDetails> {
     // }
   }
 
+Future<Uint8List> _generateReceipt(PdfPageFormat format) async {
+  final pdf = pw.Document(pageMode: PdfPageMode.outlines);
+
+  final qr = null;
+
+  pdf.addPage(
+    pw.Page(
+      pageFormat: format,
+      build: (pw.Context ctx) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Center(child: pw.Text('iFood Delivery', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(height: 5),
+            pw.Text('Pedido: #12345'),
+            pw.Text('Data: 24/06/2025'),
+            pw.Text('Cliente: João Silva'),
+            pw.Text('Endereço: Rua Exemplo, 123'),
+            pw.Divider(),
+            pw.Text('Itens:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            pw.Bullet(text: 'Hambúrguer - R\$ 25,00'),
+            pw.Bullet(text: 'Batata Frita - R\$ 10,00'),
+            pw.Bullet(text: 'Refrigerante - R\$ 5,00'),
+            pw.Divider(),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Total:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.Text('R\$ 40,00', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              ],
+            ),
+            pw.SizedBox(height: 10),
+            pw.Center(child: pw.Text('Pagamento via PIX')),
+            if (qr != null)
+              pw.Center(child: pw.Image(pw.MemoryImage(qr.buffer.asUint8List()), width: 100, height: 100)),
+            pw.Spacer(),
+            pw.Center(child: pw.Text('Obrigado pela preferência!')),
+          ],
+        );
+      },
+    ),
+  );
+  return pdf.save();
+}
+
+Future<void> printReceipt() async {
+  await Printing.layoutPdf(
+    onLayout: (PdfPageFormat format) => _generateReceipt(format),
+  );
+}
+
+
   // Método auxiliar para verificar se um pedido está cancelado
   bool _checkIfCancelled(String status) {
     final upperStatus = status.toUpperCase();
@@ -88,6 +147,11 @@ class _OrderDetailsState extends State<OrderDetails> {
       final updatedOrder = await orderRepository
           .getPedidoDetails(widget.controller.selectedPedido.value?.id ?? '');
 
+      if (updatedOrder.status.isEmpty) {
+        updatedOrder.status =
+            widget.controller.selectedPedido.value?.status ?? '';
+      }
+
       // Verificar especificamente por status de cancelamento
       final upperStatus = updatedOrder.status.toUpperCase();
       final isCancelled = upperStatus.contains('CAN') ||
@@ -111,7 +175,7 @@ class _OrderDetailsState extends State<OrderDetails> {
 
       // Atualizar o estado com um novo objeto de pedido (importante para reatividade)
       setState(() {
-        widget.controller.selectedPedido.value = updatedOrder;
+        //   widget.controller.selectedPedido.value = updatedOrder;
         _isUpdating = false;
       });
 
@@ -214,6 +278,20 @@ class _OrderDetailsState extends State<OrderDetails> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      /// Ícone de Impressora
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon:
+                                const Icon(Icons.print, color: Colors.black54),
+                            onPressed: printReceipt,
+                            tooltip: 'Imprimir',
+                          ),
+                        ],
+                      ),
+
+                      /// Conteúdo original
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -324,28 +402,6 @@ class _OrderDetailsState extends State<OrderDetails> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // const Icon(Icons.access_time,
-                              //     size: 18, color: Colors.grey),
-                              // const SizedBox(width: 6),
-                              // Text(
-                              //   "Entrega prevista: 01:34",
-                              //   style: TextStyle(
-                              //     fontSize: 14,
-                              //     color: Colors.grey[700],
-                              //   ),
-                              // ),
-                              // const SizedBox(width: 16),
-                              // const Icon(Icons.star,
-                              //     size: 18, color: Colors.amber),
-                              // const SizedBox(width: 4),
-                              // Text(
-                              //   "1º pedido",
-                              //   style: TextStyle(
-                              //     fontSize: 14,
-                              //     color: Colors.grey[700],
-                              //   ),
-                              // ),
-                              // const SizedBox(width: 16),
                               const Icon(Icons.phone,
                                   size: 18, color: Colors.grey),
                               const SizedBox(width: 4),

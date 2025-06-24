@@ -243,9 +243,9 @@ class OrderTimeline extends StatelessWidget {
       print("Criando evento sintético para o status atual: ${order.status}");
       
       // Adiciona um evento para o status "Recebido" se não existir
-      if (order.status != Consts.statusCancelled) {
-        _ensureEventExists(Consts.statusPlaced);
-      }
+      // if (order.status != Consts.statusCancelled) {
+      //   _ensureEventExists(Consts.statusPlaced);
+      // }
       
       // Adiciona eventos com base no status atual
       _ensureEventExists(order.status);

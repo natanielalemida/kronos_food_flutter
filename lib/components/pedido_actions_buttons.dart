@@ -1,5 +1,5 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:kronos_food/models/pedido_model.dart';
 import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
 import 'package:kronos_food/repositories/kronos_repository.dart';
@@ -50,6 +50,9 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       Future<bool> Function() action, String actionName) async {
     if (_isLoading) return;
 
+    print(actionName);
+    developer.log("action: ${actionName}");
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -72,7 +75,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           setState(() {                if (actionName == 'Confirmação') {
                   widget.controller.selectedPedido.value?.status = 'CFM';
                   _addEventForStatus('CFM');
-                } else if (actionName == 'Despacho') {
+                } else if (actionName == 'Despachar Pedido') {
                   widget.controller.selectedPedido.value?.status = 'DSP';
                   _addEventForStatus('DSP');
                 } else if (actionName == 'Cancelamento') {
@@ -83,10 +86,9 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                       widget.controller.selectedPedido.value?.status ?? '';
                 }
                 
-                // Force a rebuild by updating the ValueNotifier
                 final currentPedido = widget.controller.selectedPedido.value;
-                widget.controller.selectedPedido.value = null;  // Limpa temporariamente
-                widget.controller.selectedPedido.value = currentPedido;  // Restaura o valor
+                widget.controller.selectedPedido.value = null;  
+                widget.controller.selectedPedido.value = currentPedido; 
           });
         }
 
