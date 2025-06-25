@@ -36,7 +36,9 @@ class Consts {
   static const String configKey = 'config';
   static const String expirationTimeKey = 'expiration_time';
   static const String serverIpKey = 'server_ip';
+  static const String codCaixa = 'cod_caixa';
   static const String companyCodeKey = 'company_code';
+  static const String terminalCodeKey = 'terminal_code';
   static const String usernameKey = 'username';
   static const String passwordKey = 'password';
 

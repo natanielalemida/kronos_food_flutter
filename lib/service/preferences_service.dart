@@ -5,12 +5,27 @@ import 'package:kronos_food/consts.dart';
 class PreferencesService {
   Future<String?> getServerIp() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(Consts.serverIpKey) ?? Consts.serverIpKey;
+    return prefs.getString(Consts.serverIpKey);
   }
 
   Future<String?> getCompanyCode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(Consts.companyCodeKey) ?? Consts.companyCodeKey;
+    return prefs.getString(Consts.companyCodeKey);
+  }
+
+  Future<String?> getTerminalCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(Consts.terminalCodeKey);
+  }
+
+  Future<String?> getCodCaixa() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(Consts.codCaixa);
+  }
+
+  Future<void> saveCodCaixa(String cod) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(Consts.codCaixa, cod);
   }
 
   Future<void> saveServerIp(String ip) async {
@@ -23,6 +38,11 @@ class PreferencesService {
     await prefs.setString(Consts.companyCodeKey, code);
   }
 
+  Future<void> saveTerminalCode(String terminalCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(Consts.terminalCodeKey, terminalCode);
+  }
+
   Future<void> clearServerIp() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(Consts.serverIpKey);
@@ -31,6 +51,11 @@ class PreferencesService {
   Future<void> clearCompanyCode() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(Consts.companyCodeKey);
+  }
+
+  Future<void> clearTerminalCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(Consts.terminalCodeKey);
   }
 
   Future<String?> getUsername() async {
@@ -52,10 +77,12 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(Consts.passwordKey);
   }
+
   Future<void> savePassword(String password) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(Consts.passwordKey, password);
   }
+
   Future<void> clearPassword() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(Consts.passwordKey);

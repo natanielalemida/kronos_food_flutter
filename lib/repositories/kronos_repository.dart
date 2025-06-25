@@ -42,6 +42,94 @@ class KronosRepository {
     }
   }
 
+    Future<bool> sendDespachar(PedidoModel pedido) async {
+    final kronosToken = await _preferencesService.getKronosToken() ?? "";
+    
+    final company = await _preferencesService.getCompanyCode() ?? "";
+    
+    final terminal = await _preferencesService.getTerminalCode() ?? "";
+    final serverIp =
+        await _preferencesService.getServerIp() ?? "http://localhost:5000";
+    // final companyCode = await _preferencesService.getCompanyCode() ?? "";
+    final headers = {
+      'Content-Type': 'application/json',
+      'Auth': kronosToken,
+      'Empresa': company,
+      'Terminal': terminal
+    };
+
+    final url = '$serverIp/delivery/pedido/despachar';
+    var body = {
+      "IdPedidos": [pedido.id],
+      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String()
+    };
+    final response = await dio
+        .put(
+          url,
+          options: Options(
+            headers: headers,
+          ),
+          data: body,
+        )
+        .timeout(
+          const Duration(seconds: 10),
+        );
+    if (response.statusCode == 200) {
+      var data = response.data;
+      if (data['Status'] != 1) {
+        throw Exception('Erro na resposta: ${data['mensagens'][0]}');
+      }
+      return true;
+    } else {
+      throw Exception(
+          'Falha ao adicionar pedido ao cache: ${response.statusCode}');
+    }
+  }
+
+  Future<bool> sendConfirmar(PedidoModel pedido) async {
+    final kronosToken = await _preferencesService.getKronosToken() ?? "";
+    
+    final company = await _preferencesService.getCompanyCode() ?? "";
+    
+    final terminal = await _preferencesService.getTerminalCode() ?? "";
+    final serverIp =
+        await _preferencesService.getServerIp() ?? "http://localhost:5000";
+    // final companyCode = await _preferencesService.getCompanyCode() ?? "";
+    final headers = {
+      'Content-Type': 'application/json',
+      'Auth': kronosToken,
+      'Empresa': company,
+      'Terminal': terminal
+    };
+
+    final url = '$serverIp/delivery/pedido/finalizar';
+    var body = {
+      "IdPedidos": [pedido.id],
+      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String()
+    };
+    final response = await dio
+        .put(
+          url,
+          options: Options(
+            headers: headers,
+          ),
+          data: body,
+        )
+        .timeout(
+          const Duration(seconds: 10),
+        );
+    if (response.statusCode == 200) {
+      var data = response.data;
+      if (data['Status'] != 1) {
+        throw Exception('Erro na resposta: ${data['mensagens'][0]}');
+      }
+      return true;
+    } else {
+      throw Exception(
+          'Falha ao adicionar pedido ao cache: ${response.statusCode}');
+    }
+  }
+
   Future<bool> addPedidoToCache(PedidoModel pedido) async {
     final kronosToken = await _preferencesService.getKronosToken() ?? "";
     final serverIp =

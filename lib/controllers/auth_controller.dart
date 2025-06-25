@@ -203,12 +203,14 @@ class AuthController extends ChangeNotifier {
           isAuthenticating.value = false;
           isAuthenticated.value = true;
           notifyListeners();
+          await getCodCaixa(context, token);
           return true;
         } else {
           // Se não temos tokens, precisamos fazer o primeiro acesso
           if (context.mounted) {
             await firstLogin(context);
           }
+          await getCodCaixa(context, token);
           isAuthenticating.value = false;
           notifyListeners();
           return isAuthenticated
@@ -220,6 +222,30 @@ class AuthController extends ChangeNotifier {
         isAuthenticating.value = false;
         notifyListeners();
         return false;
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> getCodCaixa(BuildContext context, String token) async {
+    final serverIp = await preferenceService.getServerIp() ?? 'localhost';
+    final codigoEmpresa = await preferenceService.getCompanyCode() ?? '1';
+    final terminalCode = await preferenceService.getTerminalCode() ?? '1';
+    isAuthenticating.value = true;
+    haveError.value = false;
+    notifyListeners();
+
+     var response = await dio.get('$serverIp/caixa/',
+        options: Options(
+          headers: {'Auth': token, 'Empresa': codigoEmpresa, 'Terminal': terminalCode},
+        ));
+
+    if (response.statusCode == 200) {
+      var body = response.data;
+
+      if(body['Status'] == 1) {
+       await preferenceService.saveCodCaixa(body['Resultado']['Codigo'].toString());
       }
     }
 

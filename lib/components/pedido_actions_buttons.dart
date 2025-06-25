@@ -72,24 +72,31 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
 
         await Future.delayed(const Duration(milliseconds: 300));
         if (mounted) {
-          setState(() {                if (actionName == 'Confirmação') {
-                  widget.controller.selectedPedido.value?.status = 'CFM';
-                  _addEventForStatus('CFM');
-                } else if (actionName == 'Despachar Pedido') {
-                  widget.controller.selectedPedido.value?.status = 'DSP';
-                  _addEventForStatus('DSP');
-                } else if (actionName == 'Cancelamento') {
-                  widget.controller.selectedPedido.value?.status = 'CAN';
-                  _addEventForStatus('CAN');
-                } else {
-                  widget.controller.selectedPedido.value?.status =
-                      widget.controller.selectedPedido.value?.status ?? '';
-                }
-                
-                final currentPedido = widget.controller.selectedPedido.value;
-                widget.controller.selectedPedido.value = null;  
-                widget.controller.selectedPedido.value = currentPedido; 
+          setState(() {
+            if (actionName == 'Confirmação') {
+              widget.controller.selectedPedido.value?.status = 'CFM';
+            } else if (actionName == 'Despachar Pedido') {
+              widget.controller.selectedPedido.value?.status = 'DSP';
+            } else if (actionName == 'Cancelamento') {
+              widget.controller.selectedPedido.value?.status = 'CAN';
+            } else {
+              widget.controller.selectedPedido.value?.status =
+                  widget.controller.selectedPedido.value?.status ?? '';
+            }
           });
+
+          // Chamadas assíncronas fora do setState
+          if (actionName == 'Confirmação') {
+            await _addEventForStatus('CFM');
+          } else if (actionName == 'Despachar Pedido') {
+            await _addEventForStatus('DSP');
+          } else if (actionName == 'Cancelamento') {
+            await _addEventForStatus('CAN');
+          } 
+
+          final currentPedido = widget.controller.selectedPedido.value;
+          widget.controller.selectedPedido.value = null;
+          widget.controller.selectedPedido.value = currentPedido;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,106 +143,107 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
         barrierDismissible: false,
         builder: (context) => Dialog(
           shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-          "Motivo do cancelamento",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-          "Selecione o motivo para cancelar este pedido:",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            Expanded(
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: cancellationReasons.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final reason = cancellationReasons[index];
-              return InkWell(
-            onTap: () => Navigator.of(context).pop(reason),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              child: Row(
-                children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  Icons.cancel_outlined,
-                  color: Colors.red.shade400,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(
-                  reason['description'] ?? '',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
-                  ),
-                ),
-                Text(
-                  'Código: ${reason['cancelCodeId']}',
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  "Motivo do cancelamento",
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                  ],
+                const SizedBox(height: 8),
+                const Text(
+                  "Selecione o motivo para cancelar este pedido:",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-                ],
-              ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: cancellationReasons.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final reason = cancellationReasons[index];
+                      return InkWell(
+                        onTap: () => Navigator.of(context).pop(reason),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  Icons.cancel_outlined,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      reason['description'] ?? '',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Código: ${reason['cancelCodeId']}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: Colors.grey.shade200,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Voltar'),
+                ),
+              ],
             ),
-              );
-            },
-          ),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            backgroundColor: Colors.grey.shade200,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: const Text('Voltar'),
-            ),
-          ],
-        ),
           ),
         ),
       );
@@ -311,10 +319,16 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
   }
 
   // Adiciona um evento ao pedido para o status especificado
-  void _addEventForStatus(String statusCode) {
+  Future<void> _addEventForStatus(String statusCode) async {
     if (widget.controller.selectedPedido.value == null) return;
 
     final pedido = widget.controller.selectedPedido.value!;
+
+    var instace = KronosRepository();
+    if (statusCode == 'DSP') {
+      var result = await instace.sendDespachar(pedido);
+      if (!result) return;
+    }
 
     // Verificar se já existe um evento com este código
     final hasEvent = pedido.events.any((e) => e.code == statusCode);
@@ -330,7 +344,6 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
         merchantId: pedido.merchant.id,
       );
 
-      // Adicionar o evento à lista
       pedido.events.add(newEvent);
       print("✅ Evento adicionado localmente para o status: $statusCode");
     }
@@ -379,8 +392,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     if (status.contains("PLC") || status.contains("PLACED")) {
       buttons.add(
         ElevatedButton(
-          onPressed: () {
-            _performAction(
+          onPressed: () async {
+            await _performAction(
               () async {
                 var sucess = await _actionsService.confirmOrder(
                     widget.controller.selectedPedido.value?.id ?? "");
@@ -406,7 +419,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
         status.contains("STP")) {
       buttons.add(
         ElevatedButton(
-          onPressed: () => _performAction(
+          onPressed: () async => await _performAction(
             () => _actionsService.dispatchOrder(
                 widget.controller.selectedPedido.value?.id ?? ''),
             'Despachar Pedido',

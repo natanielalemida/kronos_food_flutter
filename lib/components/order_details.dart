@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:kronos_food/components/order_delivery_info.dart';
 import 'package:kronos_food/components/order_items.dart';
 import 'package:kronos_food/components/order_payment_info.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:kronos_food/components/order_timeline.dart';
 import 'package:kronos_food/components/pedido_actions_buttons.dart';
 import 'package:kronos_food/consts.dart';
@@ -37,16 +38,25 @@ class OrderDetails extends StatefulWidget {
 
 class _OrderDetailsState extends State<OrderDetails> {
   bool _isUpdating = false;
+  String versaoDoMeuSistema = '';
 
   @override
   void initState() {
     super.initState();
+    _loadVersion();
   }
 
   @override
   void didUpdateWidget(OrderDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
   }
+
+  Future<void> _loadVersion() async {
+  final info = await PackageInfo.fromPlatform();
+  setState(() {
+    versaoDoMeuSistema = '${info.version}+${info.buildNumber}'; // Ex: "1.0.0+1"
+  });
+}
 
   String _formatPaymentMethod(String method) {
     switch (method.toUpperCase()) {
@@ -102,9 +112,9 @@ class _OrderDetailsState extends State<OrderDetails> {
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 9)),
+          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
           pw.Text('R\$ ${value.toStringAsFixed(2)}',
-              style: pw.TextStyle(font: font, fontSize: 9)),
+              style: pw.TextStyle(font: font, fontSize: 8)),
         ],
       );
     }
@@ -125,54 +135,104 @@ class _OrderDetailsState extends State<OrderDetails> {
               pw.Center(
                 child: pw.Text(
                   pedido.orderType,
-                  style: pw.TextStyle(font: font, fontSize: 10),
+                  style: pw.TextStyle(font: font, fontSize: 9),
                 ),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 2),
               pw.Text(pedido.merchant.name,
-                  style: pw.TextStyle(font: font, fontSize: 10)),
+                  style: pw.TextStyle(font: font, fontSize: 9)),
               pw.Text(
                 'Data: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.createdAt)}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
               pw.Text(
                 'Entrega: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.delivery.deliveryDateTime)}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
               pw.Text('Cliente: ${pedido.customer.name}',
-                  style: pw.TextStyle(font: font, fontSize: 9)),
+                  style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Tel: ${pedido.customer.phone.number}',
-                  style: pw.TextStyle(font: font, fontSize: 9)),
+                  style: pw.TextStyle(font: font, fontSize: 8)),
 
               pw.Divider(thickness: 0.8),
-              pw.Text('ITENS DO PEDIDO',
-                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
-              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  'ITENS DO PEDIDO',
+                  style: pw.TextStyle(font: fontBold, fontSize: 9),
+                ),
+              ),
+              pw.SizedBox(height: 2),
               ...pedido.items.map((item) {
                 return pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      '${item.quantity}x ${item.name.toUpperCase()}',
-                      style: pw.TextStyle(font: fontBold, fontSize: 9),
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          flex: 7,
+                          child: pw.Text(
+                            '${item.quantity}x ${item.name.toUpperCase()}',
+                            style: pw.TextStyle(font: fontBold, fontSize: 8),
+                            softWrap: true,
+                          ),
+                        ),
+                        pw.SizedBox(width: 5),
+                        pw.Expanded(
+                          flex: 3,
+                          child: pw.Align(
+                            alignment: pw.Alignment.topRight,
+                            child: pw.Text(
+                              'R\$ ${item.unitPrice.toStringAsFixed(2)}',
+                              style: pw.TextStyle(font: font, fontSize: 8),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    pw.Text('R\$ ${item.unitPrice.toStringAsFixed(2)}',
-                        style: pw.TextStyle(font: font, fontSize: 9)),
-                    ...item.options.map((opt) => pw.Text(
-                          '  ${opt.quantity}x ${opt.name} +R\$ ${opt.addition.toStringAsFixed(2)}',
-                          style: pw.TextStyle(font: font, fontSize: 8),
-                        )),
+                    ...item.options.map((opt) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.only(left: 5),
+                        child: pw.Row(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Expanded(
+                              flex: 7,
+                              child: pw.Text(
+                                '${opt.quantity}x ${opt.name}',
+                                style: pw.TextStyle(font: font, fontSize: 7),
+                                softWrap: true,
+                              ),
+                            ),
+                            pw.SizedBox(width: 5),
+                            pw.Expanded(
+                              flex: 3,
+                              child: pw.Align(
+                                alignment: pw.Alignment.topRight,
+                                child: pw.Text(
+                                  '+R\$ ${opt.addition.toStringAsFixed(2)}',
+                                  style: pw.TextStyle(font: font, fontSize: 7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     if (item.observations != null)
-                      pw.Text('Obs: ${item.observations}',
-                          style: pw.TextStyle(font: font, fontSize: 8)),
+                      pw.Text(
+                        'Obs: ${item.observations}',
+                        style: pw.TextStyle(font: font, fontSize: 7),
+                      ),
                     pw.Divider(thickness: 0.8),
                   ],
                 );
               }).toList(),
 
               // TOTAL
-              pw.Text('TOTAL',
-                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              pw.Center(
+                  child: pw.Text('TOTAL',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
               _receiptLine('Itens', pedido.total.subTotal, font: font),
               _receiptLine('Taxa Entrega', pedido.total.deliveryFee,
                   font: font),
@@ -183,8 +243,9 @@ class _OrderDetailsState extends State<OrderDetails> {
               pw.Divider(thickness: 0.8),
 
               // PAGAMENTO
-              pw.Text('PAGAMENTO',
-                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              pw.Center(
+                  child: pw.Text('PAGAMENTO',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
 
               if (pedido.payments.prepaid > 0)
                 _receiptLine('Total Online', pedido.payments.prepaid,
@@ -192,7 +253,7 @@ class _OrderDetailsState extends State<OrderDetails> {
 
               if (pedido.payments.pending > 0) ...[
                 pw.Text('A RECEBER NA ENTREGA',
-                    style: pw.TextStyle(font: font, fontSize: 9)),
+                    style: pw.TextStyle(font: font, fontSize: 8)),
                 ...pedido.payments.methods
                     .where((p) => p.prepaid == false)
                     .map((p) {
@@ -201,57 +262,66 @@ class _OrderDetailsState extends State<OrderDetails> {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text('- $methodLabel',
-                          style: pw.TextStyle(font: font, fontSize: 9)),
+                          style: pw.TextStyle(font: font, fontSize: 8)),
                       pw.Text('R\$ ${p.value.toStringAsFixed(2)}',
-                          style: pw.TextStyle(font: font, fontSize: 9)),
+                          style: pw.TextStyle(font: font, fontSize: 8)),
                     ],
                   );
                 }),
               ],
 
+
+              // INFORMAÇÕES ADICIONAIS
+              if (pedido.customer.documentNumber.isNotEmpty && pedido.delivery.deliveredBy == "MERCHANT") ...[
+                pw.SizedBox(height: 2),
+                pw.Divider(thickness: 0.8),
+         
+                     pw.Text('INFORMAÇÕES ADICIONAIS',
+                        style: const pw.TextStyle(fontSize: 8)),
+                pw.Text('Incluir CPF na Nota Fiscal',
+                    style: pw.TextStyle(font: font, fontSize: 8)),
+                pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
+                    style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
+
               // ENTREGA
-              pw.Divider(thickness: 0.8),
-              pw.Text('ENTREGA',
-                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              if (pedido.delivery.deliveredBy == "MERCHANT") ...[
+pw.Divider(thickness: 0.8),
+              pw.Center(
+                  child: pw.Text('ENTREGA PEDIDO #${pedido.displayId}',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
               pw.Text(
                 'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
               pw.Text(
                 'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
+              ),
+                        pw.Text(
+                'Comp: ${pedido.delivery.deliveryAddress.complement}',
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
               if (pedido.delivery.deliveryAddress.reference != null)
                 pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
-                    style: pw.TextStyle(font: font, fontSize: 8)),
+                    style: pw.TextStyle(font: font, fontSize: 7)),
               pw.Text(
                 'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
+              ),
+                        pw.Text(
+                'Cidade: ${pedido.delivery.deliveryAddress.city} - ${pedido.delivery.deliveryAddress.state}',
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
               pw.Text(
                 'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
-                style: pw.TextStyle(font: font, fontSize: 9),
+                style: pw.TextStyle(font: font, fontSize: 8),
               ),
-
-              // INFORMAÇÕES ADICIONAIS
-              if (pedido.customer.documentNumber.isNotEmpty) ...[
-                pw.SizedBox(height: 6),
-                pw.Divider(thickness: 0.8),
-                pw.Text('INFORMAÇÕES ADICIONAIS',
-                    style: pw.TextStyle(font: fontBold, fontSize: 10)),
-                pw.Text('Incluir CPF na Nota Fiscal',
-                    style: pw.TextStyle(font: font, fontSize: 9)),
-                pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
-                    style: pw.TextStyle(font: font, fontSize: 9)),
               ],
-
+              
               pw.SizedBox(height: 6),
-              pw.Text('Impresso por:',
-                  style: pw.TextStyle(font: font, fontSize: 9)),
-              pw.Center(
-                child: pw.Text('ARC SOLUTION',
-                    style: pw.TextStyle(font: font, fontSize: 9)),
-              ),
+              pw.Text('Impresso por: KRONOS ERP $versaoDoMeuSistema',
+                  style: pw.TextStyle(font: font, fontSize: 8)),
             ],
           );
         },

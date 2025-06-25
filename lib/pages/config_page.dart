@@ -13,9 +13,11 @@ class ConfigPage extends StatefulWidget {
 class _ConfigPageState extends State<ConfigPage> {
   late String? _serverIp;
   late String? _companyCode;
+  late String? _terminalCode;
   final preferencesService = PreferencesService();
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _companyCodeController = TextEditingController();
+  final TextEditingController _terminalController = TextEditingController();
   final TextEditingController _serverIpController = TextEditingController();
   bool _isSaving = false;
 
@@ -25,12 +27,13 @@ class _ConfigPageState extends State<ConfigPage> {
     _carregarConfiguracoes();
   }
 
-  // Carrega configurações salvas no SharedPreferences, se existirem
   Future<void> _carregarConfiguracoes() async {
     _serverIp = await preferencesService.getServerIp();
     _companyCode = await preferencesService.getCompanyCode();
+    _terminalCode = await preferencesService.getTerminalCode();
     setState(() {
       _companyCodeController.text = _companyCode ?? '';
+      _terminalController.text = _terminalCode ?? '1';
       _serverIpController.text = _serverIp ?? '';
     });
   }
@@ -45,6 +48,7 @@ class _ConfigPageState extends State<ConfigPage> {
       try {
         await preferencesService.saveServerIp(_serverIpController.text);
         await preferencesService.saveCompanyCode(_companyCodeController.text);
+        await preferencesService.saveTerminalCode(_terminalController.text);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -102,15 +106,15 @@ class _ConfigPageState extends State<ConfigPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
                                 Icon(
                                   Icons.settings,
                                   color: Consts.primaryColor,
                                   size: 28,
                                 ),
-                                const SizedBox(width: 12),
-                                const Text(
+                                SizedBox(width: 12),
+                                Text(
                                   'Configurações do Servidor',
                                   style: TextStyle(
                                     fontSize: 18,
@@ -128,31 +132,6 @@ class _ConfigPageState extends State<ConfigPage> {
                               ),
                             ),
                             const SizedBox(height: 24),
-
-                            // Campo para o código da empresa (apenas números)
-                            TextFormField(
-                              controller: _companyCodeController,
-                              decoration: InputDecoration(
-                                labelText: 'Código da Empresa',
-                                hintText: 'Ex: 12345',
-                                prefixIcon: const Icon(Icons.business),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, insira o código da empresa';
-                                }
-                                return null;
-                              },
-                            ),
-
-                            const SizedBox(height: 20),
 
                             // Campo para o endereço do servidor (aceitando formatos mais flexíveis)
                             TextFormField(
@@ -191,6 +170,55 @@ class _ConfigPageState extends State<ConfigPage> {
                                 }
 
                                 return 'Por favor, insira um endereço de servidor válido';
+                              },
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Campo para o código da empresa (apenas números)
+                            TextFormField(
+                              controller: _companyCodeController,
+                              decoration: InputDecoration(
+                                labelText: 'Código da Empresa',
+                                hintText: 'Ex: 12345',
+                                prefixIcon: const Icon(Icons.business),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Por favor, insira o código da empresa';
+                                }
+                                return null;
+                              },
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            TextFormField(
+                              controller: _terminalController,
+                              decoration: InputDecoration(
+                                labelText: 'Terminal',
+                                hintText: 'Ex: 12345',
+                                prefixIcon: const Icon(Icons.business),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Por favor, insira o do terminal';
+                                }
+                                return null;
                               },
                             ),
                           ],
@@ -281,10 +309,12 @@ class _ConfigPageState extends State<ConfigPage> {
                               if (confirmed == true && mounted) {
                                 await preferencesService.clearCompanyCode();
                                 await preferencesService.clearServerIp();
+                                 await preferencesService.clearTerminalCode();
 
                                 setState(() {
                                   _companyCodeController.clear();
                                   _serverIpController.clear();
+                                  _terminalController.clear();
                                 });
 
                                 ScaffoldMessenger.of(context).showSnackBar(
