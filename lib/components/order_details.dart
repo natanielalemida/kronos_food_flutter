@@ -1,10 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:printing/printing.dart';
 import 'package:kronos_food/components/order_delivery_info.dart';
 import 'package:kronos_food/components/order_items.dart';
@@ -47,76 +46,269 @@ class _OrderDetailsState extends State<OrderDetails> {
   @override
   void didUpdateWidget(OrderDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Atualizar o pedido e status quando o widget for atualizado com novos dados
-    // if (oldWidget.order.id != widget.order.id ||
-    //     oldWidget.status != widget.status) {
-    //   setState(() {
-    //     _currentOrder = widget.order;
-    //     _currentStatus = widget.status;
-
-    //     // Garantir que pedidos cancelados sejam reconhecidos corretamente
-    //     if (_checkIfCancelled(_currentOrder.status)) {
-    //       _currentStatus = Consts.statusCancelled;
-    //       print(
-    //           '🔴 Pedido cancelado detectado em didUpdateWidget: ${_currentOrder.id}');
-    //     }
-    //   });
-    // }
   }
 
-Future<Uint8List> _generateReceipt(PdfPageFormat format) async {
-  final pdf = pw.Document(pageMode: PdfPageMode.outlines);
+  String _formatPaymentMethod(String method) {
+    switch (method.toUpperCase()) {
+      case 'CREDIT':
+        return 'Cartão de Crédito';
+      case 'DEBIT':
+        return 'Cartão de Débito';
+      case 'CASH':
+        return 'Dinheiro';
+      case 'PIX':
+        return 'PIX';
+      case 'MEAL_VOUCHER':
+        return 'Vale Refeição';
+      case 'FOOD_VOUCHER':
+        return 'Vale Alimentação';
+      default:
+        return method;
+    }
+  }
 
-  final qr = null;
+  String _formatCardBrand(String brand) {
+    if (brand.isEmpty) return '';
 
-  pdf.addPage(
-    pw.Page(
-      pageFormat: format,
-      build: (pw.Context ctx) {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: [
-            pw.Center(child: pw.Text('iFood Delivery', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold))),
-            pw.SizedBox(height: 5),
-            pw.Text('Pedido: #12345'),
-            pw.Text('Data: 24/06/2025'),
-            pw.Text('Cliente: João Silva'),
-            pw.Text('Endereço: Rua Exemplo, 123'),
-            pw.Divider(),
-            pw.Text('Itens:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-            pw.Bullet(text: 'Hambúrguer - R\$ 25,00'),
-            pw.Bullet(text: 'Batata Frita - R\$ 10,00'),
-            pw.Bullet(text: 'Refrigerante - R\$ 5,00'),
-            pw.Divider(),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Total:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                pw.Text('R\$ 40,00', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+    String formattedBrand = brand.toLowerCase();
+    switch (formattedBrand) {
+      case 'mastercard':
+        return 'Mastercard';
+      case 'visa':
+        return 'Visa';
+      case 'elo':
+        return 'Elo';
+      case 'amex':
+      case 'american express':
+        return 'American Express';
+      case 'hipercard':
+        return 'Hipercard';
+      default:
+        return formattedBrand[0].toUpperCase() + formattedBrand.substring(1);
+    }
+  }
+
+  Future<Uint8List> _generateReceipt(PdfPageFormat format) async {
+    final pdf = pw.Document();
+    final pedido = widget.controller.selectedPedido.value;
+
+    if (pedido == null) return Uint8List(0);
+
+    final font = await PdfGoogleFonts.robotoRegular();
+    final fontBold = await PdfGoogleFonts.robotoBold();
+
+    pw.Widget _receiptLine(String label, double value,
+        {required pw.Font font}) {
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 9)),
+          pw.Text('R\$ ${value.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: font, fontSize: 9)),
+        ],
+      );
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.roll80,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(
+                child: pw.Text(
+                  '**** PEDIDO #${pedido.displayId} ****',
+                  style: pw.TextStyle(font: fontBold, fontSize: 11),
+                ),
+              ),
+              pw.Center(
+                child: pw.Text(
+                  pedido.orderType,
+                  style: pw.TextStyle(font: font, fontSize: 10),
+                ),
+              ),
+              pw.SizedBox(height: 5),
+              pw.Text(pedido.merchant.name,
+                  style: pw.TextStyle(font: font, fontSize: 10)),
+              pw.Text(
+                'Data: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.createdAt)}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
+              pw.Text(
+                'Entrega: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.delivery.deliveryDateTime)}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
+              pw.Text('Cliente: ${pedido.customer.name}',
+                  style: pw.TextStyle(font: font, fontSize: 9)),
+              pw.Text('Tel: ${pedido.customer.phone.number}',
+                  style: pw.TextStyle(font: font, fontSize: 9)),
+
+              pw.Divider(thickness: 0.8),
+              pw.Text('ITENS DO PEDIDO',
+                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              pw.SizedBox(height: 4),
+              ...pedido.items.map((item) {
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      '${item.quantity}x ${item.name.toUpperCase()}',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9),
+                    ),
+                    pw.Text('R\$ ${item.unitPrice.toStringAsFixed(2)}',
+                        style: pw.TextStyle(font: font, fontSize: 9)),
+                    ...item.options.map((opt) => pw.Text(
+                          '  ${opt.quantity}x ${opt.name} +R\$ ${opt.addition.toStringAsFixed(2)}',
+                          style: pw.TextStyle(font: font, fontSize: 8),
+                        )),
+                    if (item.observations != null)
+                      pw.Text('Obs: ${item.observations}',
+                          style: pw.TextStyle(font: font, fontSize: 8)),
+                    pw.Divider(thickness: 0.8),
+                  ],
+                );
+              }).toList(),
+
+              // TOTAL
+              pw.Text('TOTAL',
+                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              _receiptLine('Itens', pedido.total.subTotal, font: font),
+              _receiptLine('Taxa Entrega', pedido.total.deliveryFee,
+                  font: font),
+              _receiptLine('Taxa Adicional', pedido.total.additionalFees,
+                  font: font),
+              _receiptLine('Desconto', -pedido.total.benefits, font: font),
+              _receiptLine('TOTAL', pedido.total.orderAmount, font: fontBold),
+              pw.Divider(thickness: 0.8),
+
+              // PAGAMENTO
+              pw.Text('PAGAMENTO',
+                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+
+              if (pedido.payments.prepaid > 0)
+                _receiptLine('Total Online', pedido.payments.prepaid,
+                    font: font),
+
+              if (pedido.payments.pending > 0) ...[
+                pw.Text('A RECEBER NA ENTREGA',
+                    style: pw.TextStyle(font: font, fontSize: 9)),
+                ...pedido.payments.methods
+                    .where((p) => p.prepaid == false)
+                    .map((p) {
+                  final methodLabel = _formatPaymentMethod(p.method);
+                  return pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('- $methodLabel',
+                          style: pw.TextStyle(font: font, fontSize: 9)),
+                      pw.Text('R\$ ${p.value.toStringAsFixed(2)}',
+                          style: pw.TextStyle(font: font, fontSize: 9)),
+                    ],
+                  );
+                }),
               ],
-            ),
-            pw.SizedBox(height: 10),
-            pw.Center(child: pw.Text('Pagamento via PIX')),
-            if (qr != null)
-              pw.Center(child: pw.Image(pw.MemoryImage(qr.buffer.asUint8List()), width: 100, height: 100)),
-            pw.Spacer(),
-            pw.Center(child: pw.Text('Obrigado pela preferência!')),
-          ],
-        );
-      },
-    ),
-  );
-  return pdf.save();
-}
 
-Future<void> printReceipt() async {
-  await Printing.layoutPdf(
-    onLayout: (PdfPageFormat format) => _generateReceipt(format),
-  );
-}
+              // ENTREGA
+              pw.Divider(thickness: 0.8),
+              pw.Text('ENTREGA',
+                  style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              pw.Text(
+                'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
+              pw.Text(
+                'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
+              if (pedido.delivery.deliveryAddress.reference != null)
+                pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
+                    style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text(
+                'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
+              pw.Text(
+                'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
+                style: pw.TextStyle(font: font, fontSize: 9),
+              ),
 
+              // INFORMAÇÕES ADICIONAIS
+              if (pedido.customer.documentNumber.isNotEmpty) ...[
+                pw.SizedBox(height: 6),
+                pw.Divider(thickness: 0.8),
+                pw.Text('INFORMAÇÕES ADICIONAIS',
+                    style: pw.TextStyle(font: fontBold, fontSize: 10)),
+                pw.Text('Incluir CPF na Nota Fiscal',
+                    style: pw.TextStyle(font: font, fontSize: 9)),
+                pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
+                    style: pw.TextStyle(font: font, fontSize: 9)),
+              ],
 
-  // Método auxiliar para verificar se um pedido está cancelado
+              pw.SizedBox(height: 6),
+              pw.Text('Impresso por:',
+                  style: pw.TextStyle(font: font, fontSize: 9)),
+              pw.Center(
+                child: pw.Text('ARC SOLUTION',
+                    style: pw.TextStyle(font: font, fontSize: 9)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  pw.Widget _receiptLine(String title, double value, {required pw.Font font}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(
+          title,
+          style: pw.TextStyle(font: font, fontSize: 9),
+        ),
+        pw.Text(
+          'R\$ ${value.toStringAsFixed(2)}',
+          style: pw.TextStyle(font: font, fontSize: 9),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _line(String title, double value, {bool bold = false}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(title,
+            style: pw.TextStyle(
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+        pw.Text(
+          'R\$ ${value >= 0 ? value.toStringAsFixed(2) : '- ${value.abs().toStringAsFixed(2)}'}',
+          style: pw.TextStyle(
+              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _paymentLine(String label, double value) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text('▐ $label'),
+        pw.Text('▐ R\$ ${value.toStringAsFixed(2)}'),
+      ],
+    );
+  }
+
+  Future<void> printReceipt() async {
+    await Printing.layoutPdf(
+      onLayout: (_) => _generateReceipt(PdfPageFormat.roll80),
+    );
+  }
+
   bool _checkIfCancelled(String status) {
     final upperStatus = status.toUpperCase();
     return upperStatus.contains('CAN') ||
@@ -125,7 +317,6 @@ Future<void> printReceipt() async {
         upperStatus.contains('CANCEL');
   }
 
-  // Método para atualizar o pedido após uma ação
   Future<void> _updateOrderDetails() async {
     if (_isUpdating) return;
 
@@ -134,7 +325,6 @@ Future<void> printReceipt() async {
     });
 
     try {
-      // Obter token válido
       final authRepository = AuthRepository();
       final token = await authRepository.getValidAccessToken();
 
@@ -142,7 +332,6 @@ Future<void> printReceipt() async {
         throw Exception("Token de acesso inválido ou expirado");
       }
 
-      // Buscar os dados atualizados do pedido
       final orderRepository = OrderRepository(Consts.baseUrl, token);
       final updatedOrder = await orderRepository
           .getPedidoDetails(widget.controller.selectedPedido.value?.id ?? '');
@@ -152,7 +341,6 @@ Future<void> printReceipt() async {
             widget.controller.selectedPedido.value?.status ?? '';
       }
 
-      // Verificar especificamente por status de cancelamento
       final upperStatus = updatedOrder.status.toUpperCase();
       final isCancelled = upperStatus.contains('CAN') ||
           upperStatus.contains('CANCELLED') ||
@@ -160,26 +348,17 @@ Future<void> printReceipt() async {
           upperStatus.contains('CANCEL');
 
       if (isCancelled) {
-        print(
-            '🔴 Pedido cancelado detectado: ${updatedOrder.id} - status: ${updatedOrder.status}');
-        // Forçar o status para o código de cancelamento do aplicativo
         updatedOrder.statusCode = Consts.statusCancelled;
       }
 
-      // Determinar o novo status mapeado antes da atualização do estado
       String newStatus = isCancelled
           ? Consts.statusCancelled
           : _mapStatusCode(updatedOrder.status);
-      print(
-          '🔄 Atualizando pedido: status API=${updatedOrder.status}, status mapeado=$newStatus');
 
-      // Atualizar o estado com um novo objeto de pedido (importante para reatividade)
       setState(() {
-        //   widget.controller.selectedPedido.value = updatedOrder;
         _isUpdating = false;
       });
 
-      // Feedback para o usuário
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(isCancelled
@@ -190,12 +369,10 @@ Future<void> printReceipt() async {
         ),
       );
     } catch (e) {
-      print('Erro ao atualizar detalhes do pedido: $e');
       setState(() {
         _isUpdating = false;
       });
 
-      // Feedback de erro para o usuário
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao atualizar: ${e.toString()}'),
@@ -206,19 +383,13 @@ Future<void> printReceipt() async {
     }
   }
 
-  // Mapeamento de status para códigos usados no app
   String _mapStatusCode(String apiStatus) {
-    // Esta função deve usar o mesmo mapeamento que é usado em seu controller
-    // Por exemplo:
     final upperStatus = apiStatus.toUpperCase();
 
-    // Verificação específica para cancelamento
     if (upperStatus.contains('CAN') ||
         upperStatus.contains('CANCELLED') ||
         upperStatus.contains('CANCELLATION') ||
         upperStatus.contains('CANCEL')) {
-      print(
-          '🔴 Status de cancelamento detectado em _mapStatusCode: $apiStatus');
       return Consts.statusCancelled;
     } else if (upperStatus.contains('PLC') || upperStatus.contains('PLACED')) {
       return Consts.statusPlaced;
@@ -236,7 +407,7 @@ Future<void> printReceipt() async {
         upperStatus.contains('COMPLETE')) {
       return Consts.statusConcluded;
     } else {
-      return Consts.statusPlaced; // Status padrão se não puder determinar
+      return Consts.statusPlaced;
     }
   }
 
@@ -244,24 +415,19 @@ Future<void> printReceipt() async {
   Widget build(BuildContext context) {
     if (widget.controller.selectedPedido.value == null) {
       return Center(
-        child: Text(
-          "Nenhum pedido selecionado",
-          style: TextStyle(color: Colors.grey[700], fontSize: 16),
-        ),
+        child: Text("Nenhum pedido selecionado"),
       );
     }
 
     return Stack(
       children: [
         Container(
-          color:
-              Colors.grey[50], // Fundo sutilmente cinza para destacar os cards
+          color: Colors.grey[50],
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header com informações do pedido e botão de atualização
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -278,7 +444,6 @@ Future<void> printReceipt() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      /// Ícone de Impressora
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -290,8 +455,6 @@ Future<void> printReceipt() async {
                           ),
                         ],
                       ),
-
-                      /// Conteúdo original
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -310,7 +473,6 @@ Future<void> printReceipt() async {
                                       '',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
                                   ),
                                 ),
                               ),
@@ -322,7 +484,6 @@ Future<void> printReceipt() async {
                                       "",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -335,24 +496,15 @@ Future<void> printReceipt() async {
                             children: [
                               Text(
                                 "Feito às ${_formatTime(widget.controller.selectedPedido.value?.createdAt ?? DateTime.now())}",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
+                                style: TextStyle(color: Colors.grey[700]),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                "•",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
+                              Text("•",
+                                  style: TextStyle(color: Colors.grey[700])),
                               const SizedBox(width: 8),
                               Text(
                                 "Localizador",
                                 style: TextStyle(
-                                  fontSize: 14,
                                   color: Colors.blue[700],
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -362,19 +514,11 @@ Future<void> printReceipt() async {
                                 widget.controller.selectedPedido.value?.customer
                                         .phone.localizer ??
                                     "",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
+                                style: TextStyle(color: Colors.grey[700]),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                "•",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
+                              Text("•",
+                                  style: TextStyle(color: Colors.grey[700])),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -388,7 +532,6 @@ Future<void> printReceipt() async {
                                     Text(
                                       "via ${widget.controller.selectedPedido.value?.salesChannel ?? ""}",
                                       style: TextStyle(
-                                        fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.grey[800],
                                       ),
@@ -407,10 +550,7 @@ Future<void> printReceipt() async {
                               const SizedBox(width: 4),
                               Text(
                                 "${widget.controller.selectedPedido.value?.customer.phone.number ?? ""} ID: ${widget.controller.selectedPedido.value?.customer.phone.localizer ?? ""}",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
+                                style: TextStyle(color: Colors.grey[700]),
                               ),
                             ],
                           ),
@@ -419,10 +559,7 @@ Future<void> printReceipt() async {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Timeline do pedido (agora horizontal)
                 if (widget.controller.selectedPedido.value?.status !=
                         "SCHEDULED" &&
                     widget.controller.selectedPedido.value != null) ...[
@@ -430,10 +567,7 @@ Future<void> printReceipt() async {
                     order: widget.controller.selectedPedido.value!,
                   ),
                 ],
-
                 const SizedBox(height: 20),
-
-                // Botões de ação do pedido
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -457,7 +591,6 @@ Future<void> printReceipt() async {
                           const Text(
                             "Ações do Pedido",
                             style: TextStyle(
-                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -478,10 +611,7 @@ Future<void> printReceipt() async {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Informações da entrega
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -500,10 +630,7 @@ Future<void> printReceipt() async {
                         widget.controller.selectedPedido.value?.status ?? "",
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Itens do pedido
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -520,10 +647,7 @@ Future<void> printReceipt() async {
                     order: widget.controller.selectedPedido.value!,
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Informações de pagamento
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -542,57 +666,17 @@ Future<void> printReceipt() async {
                         widget.controller.selectedPedido.value?.status ?? "",
                   ),
                 ),
-
-                // Espaço no final para melhor experiência de rolagem
                 const SizedBox(height: 24),
               ],
             ),
           ),
         ),
-        // Indicador de carregamento sobreposto com animação de fade
       ],
     );
   }
 
   String _formatTime(DateTime dateTime) {
-    dateTime =
-        dateTime.toLocal(); // Garantir que a data esteja no fuso horário local
+    dateTime = dateTime.toLocal();
     return "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case Consts.statusPlaced:
-        return "Novo Pedido";
-      case Consts.statusConfirmed:
-        return "Confirmado";
-      case Consts.statusDispatched:
-        return "Em Entrega";
-      case Consts.statusConcluded:
-        return "Concluído";
-      case Consts.statusCancelled:
-        return "Cancelado";
-      case "SCHEDULED":
-        return "Agendado";
-      default:
-        return "Status Desconhecido";
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case Consts.statusPlaced:
-        return Colors.blue;
-      case Consts.statusConfirmed:
-        return Colors.green;
-      case Consts.statusDispatched:
-        return Colors.orange;
-      case Consts.statusConcluded:
-        return Colors.purple;
-      case Consts.statusCancelled:
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 }
