@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/models/event_model.dart';
@@ -23,6 +24,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   late bool isLoading;
   late String token;
   late Timer? timer;
+  late Timer? cleanupTimer;
   final kronosRepository = KronosRepository();
 
   late MerchantRepository merchantRepository;
@@ -30,7 +32,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   late OrderRepository orderRepository;
   late MerchantModel loja;
   ValueNotifier<PedidoModel?> selectedPedido =
-      ValueNotifier<PedidoModel?>(null); // Pedido selecionado
+      ValueNotifier<PedidoModel?>(null);
   bool haveError = false;
   String errorMsg = "";
   Map<String, List<PedidoModel>> pedidosMap = {};
@@ -41,6 +43,72 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   final merchantStatus = ValueNotifier<MerchantStatus>(MerchantStatus.closed);
   final orderTimming = ValueNotifier<OrderTimming>(OrderTimming.immediate);
+
+  // Métodos para gerenciar pedidos confirmados
+  Future<bool> isPedidoConfirmed(String pedidoId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final timestamp = prefs.getInt('confirmed_${pedidoId}_timestamp');
+    if (timestamp == null) return false;
+    
+    // Verifica se já passou 8 horas (8 * 60 * 60 * 1000 ms)
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final eightHoursInMs = 8 * 60 * 60 * 1000;
+    if (now - timestamp > eightHoursInMs) {
+      // Remove o pedido confirmado expirado
+      await prefs.remove('confirmed_$pedidoId');
+      await prefs.remove('confirmed_${pedidoId}_timestamp');
+      developer.log("♻️ Confirmação expirada removida para pedido $pedidoId");
+      return false;
+    }
+    return prefs.getBool('confirmed_$pedidoId') ?? false;
+  }
+
+  Future<void> markPedidoAsConfirmed(String pedidoId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('confirmed_$pedidoId', true);
+    await prefs.setInt('confirmed_${pedidoId}_timestamp', 
+        DateTime.now().millisecondsSinceEpoch);
+    developer.log("✅ Pedido $pedidoId marcado como confirmado");
+  }
+
+  Future<void> clearConfirmedPedidos() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((key) => 
+        key.startsWith('confirmed_') && 
+        !key.endsWith('_timestamp'));
+    
+    for (var key in keys) {
+      final pedidoId = key.replaceFirst('confirmed_', '');
+      await prefs.remove(key);
+      await prefs.remove('confirmed_${pedidoId}_timestamp');
+    }
+    developer.log("🧹 Todas as confirmações de pedidos foram limpas");
+  }
+
+  Future<void> cleanExpiredConfirmations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final timestampKeys = prefs.getKeys().where((key) => 
+        key.endsWith('_timestamp'));
+    
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final eightHoursInMs = 8 * 60 * 60 * 1000;
+    
+    int removedCount = 0;
+    
+    for (var key in timestampKeys) {
+      final timestamp = prefs.getInt(key);
+      if (timestamp != null && (now - timestamp) > eightHoursInMs) {
+        final pedidoId = key.replaceFirst('confirmed_', '').replaceFirst('_timestamp', '');
+        await prefs.remove('confirmed_$pedidoId');
+        await prefs.remove(key);
+        removedCount++;
+      }
+    }
+    
+    if (removedCount > 0) {
+      developer.log("🧹 $removedCount confirmações expiradas foram removidas");
+    }
+  }
 
   Future<void> setLoja(MerchantModel loja) async {
     this.loja = loja;
@@ -59,15 +127,11 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   Future<PedidoModel?> getPedidoDetails(String pedidoId) async {
     try {
       var pedidos = await kronosRepository.getPedidosCache();
-      // Verifica se o pedido já está no cache
       if (pedidos.isEmpty ||
           (pedidos.isNotEmpty &&
               pedidos.where((p) => p.id == pedidoId).isEmpty)) {
         developer.log("Cache de pedidos está vazio.");
-
-        // Se não estiver no cache, busca da API
         var pedido = await orderRepository.getPedidoDetails(pedidoId);
-
         return pedido;
       } else {
         PedidoModel? cachedPedido = pedidos.firstWhere((p) => p.id == pedidoId);
@@ -97,28 +161,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  // // Recupera um pedido do cache
-  // Future<PedidoModel?> getPedidoFromCache(String pedidoId) async {
-  //   try {
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final pedidoJson = prefs.getString('pedido_$pedidoId');
-
-  //     if (pedidoJson == null) return null;
-
-  //     // Obter o pedido do cache
-  //     var pedido = PedidoModel.fromJson(jsonDecode(pedidoJson));
-
-  //     // Log para verificar o status
-  //     developer.log(
-  //         "Pedido recuperado do cache: ${pedido.id} - status: ${pedido.status}");
-
-  //     return pedido;
-  //   } catch (e) {
-  //     developer.log("Erro ao recuperar pedido do cache: $e");
-  //     return null;
-  //   }
-  // }
-
   Future<void> handleNewEvent(EventModel event) async {
     developer.log('Recebeu novo evento: ${event.code} - ${event.id}');
     try {
@@ -127,11 +169,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
       developer.log('Processando evento $eventCode para pedido $orderId');
 
-      // Tratar eventos de cancelamento com prioridade
       if (eventCode == 'CAN') {
         developer.log('Processando CANCELAMENTO para pedido $orderId');
 
-        // Remover o pedido de qualquer lista de status atual
         bool pedidoRemovido = false;
         for (var statusKey in pedidosMap.keys.toList()) {
           int countBefore = pedidosMap[statusKey]?.length ?? 0;
@@ -139,46 +179,34 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
           int countAfter = pedidosMap[statusKey]?.length ?? 0;
           if (countBefore > countAfter) {
             pedidoRemovido = true;
-            developer
-                .log('Pedido $orderId removido da lista de status $statusKey');
+            developer.log('Pedido $orderId removido da lista de status $statusKey');
           }
         }
 
-        // Se o pedido foi encontrado e removido, adicionar à lista de cancelados
         if (pedidoRemovido) {
-          // Tenta obter detalhes atualizados, ou usar um modelo básico se falhar
           try {
             var updatedPedido = await getPedidoDetails(orderId);
             if (updatedPedido != null) {
-              // Forçar o status para cancelado
               updatedPedido.statusCode = Consts.statusCancelled;
 
-              // Adicionar à lista de cancelados
               if (!pedidosMap.containsKey(Consts.statusCancelled)) {
                 pedidosMap[Consts.statusCancelled] = [];
               }
               pedidosMap[Consts.statusCancelled]!.add(updatedPedido);
 
-              // Salvar o pedido atualizado no cache
               updatedPedido.status = eventCode;
 
               if (updatedPedido.events.where((e) => e.id == event.id).isEmpty) {
                 updatedPedido.events.add(event);
               } else {
-                // Atualizar o evento existente
-                int index =
-                    updatedPedido.events.indexWhere((e) => e.id == event.id);
+                int index = updatedPedido.events.indexWhere((e) => e.id == event.id);
                 if (index != -1) {
                   updatedPedido.events[index] = event;
                 }
               }
 
               await savePedidoToCache(updatedPedido);
-
-              await pollingRepository.acknowledgeEvents([
-                {"id": event.id}
-              ]);
-
+              await pollingRepository.acknowledgeEvents([{"id": event.id}]);
               developer.log('🔄 Pedido $orderId movido para CANCELADOS');
               _needsNotification = true;
             }
@@ -186,88 +214,62 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             developer.log('Erro ao obter detalhes do pedido cancelado: $e');
           }
         } else {
-          await pollingRepository.acknowledgeEvents([
-            {"id": event.id}
-          ]);
+          await pollingRepository.acknowledgeEvents([{"id": event.id}]);
         }
       } else {
-        // Buscar detalhes do pedido diretamente da API para garantir dados atualizados (código existente)
         try {
           var updatedPedido = await getPedidoDetails(orderId);
           if (updatedPedido != null) {
-            developer
-                .log('Detalhes do pedido $orderId atualizados com sucesso');
+            developer.log('Detalhes do pedido $orderId atualizados com sucesso');
             updatedPedido.status = eventCode;
 
-            // Determinar o status correspondente ao código do evento
-            String status = mapApiStatusToCode(updatedPedido.status.isEmpty
-                ? eventCode
-                : updatedPedido.status);
+            String status = mapApiStatusToCode(
+                updatedPedido.status.isEmpty ? eventCode : updatedPedido.status);
 
-            // Primeiro, remover o pedido de qualquer lista de status existente
+            // Verificação e envio de confirmação
+            if (status == 'CON') {
+              bool alreadyConfirmed = await isPedidoConfirmed(updatedPedido.id);
+              if (!alreadyConfirmed) {
+                await kronosRepository.sendConfirmar(updatedPedido);
+                await markPedidoAsConfirmed(updatedPedido.id);
+                developer.log("✅ Pedido ${updatedPedido.id} confirmado e marcado no storage");
+              } else {
+                developer.log("ℹ️ Pedido ${updatedPedido.id} já foi confirmado anteriormente");
+              }
+            }
+
             for (var statusKey in pedidosMap.keys.toList()) {
               pedidosMap[statusKey]?.removeWhere((p) => p.id == orderId);
             }
 
-            // Adicionar o pedido atualizado à lista correta
             if (pedidosMap.containsKey(status)) {
               pedidosMap[status]!.add(updatedPedido);
             } else {
               pedidosMap[status] = [updatedPedido];
             }
+            
             if (updatedPedido.events.where((e) => e.id == event.id).isEmpty) {
               updatedPedido.events.add(event);
             } else {
-              // Atualizar o evento existente
-              int index =
-                  updatedPedido.events.indexWhere((e) => e.id == event.id);
+              int index = updatedPedido.events.indexWhere((e) => e.id == event.id);
               if (index != -1) {
                 updatedPedido.events[index] = event;
               }
             }
-            // Salvar o pedido no cache
+            
             await savePedidoToCache(updatedPedido);
-            await pollingRepository.acknowledgeEvents([
-              {"id": event.id}
-            ]);
+            await pollingRepository.acknowledgeEvents([{"id": event.id}]);
 
             if (selectedPedido.value?.id == orderId) {
               selectedPedido.value = updatedPedido;
             }
             selectedPedido.notifyListeners();
 
-            developer.log(
-                'Pedido $orderId com status $status adicionado/atualizado no estado');
+            developer.log('Pedido $orderId com status $status adicionado/atualizado no estado');
             _needsNotification = true;
           }
         } catch (e) {
           developer.log('Erro ao atualizar detalhes do pedido $orderId: $e');
-
-          // Se falhar ao buscar detalhes, pelo menos atualizar o status baseado no evento
-          // final existingPedido = _findPedidoInMap(orderId);
-          // if (existingPedido != null) {
-          //   // Atualizar o status do pedido baseado no código do evento
-          //   final newStatus = mapApiStatusToCode(eventCode);
-
-          //   // Remover o pedido do status antigo
-          //   for (var statusKey in pedidosMap.keys.toList()) {
-          //     pedidosMap[statusKey]?.removeWhere((p) => p.id == orderId);
-          //   }
-
-          //   // Atualizar o status do pedido
-          //   existingPedido.status = newStatus;
-
-          //   // Adicionar o pedido atualizado à lista correta
-          //   if (pedidosMap.containsKey(newStatus)) {
-          //     pedidosMap[newStatus]!.add(existingPedido);
-          //   } else {
-          //     pedidosMap[newStatus] = [existingPedido];
-          //   }
-
-          //   _needsNotification = true;
-          //   developer.log(
-          //       'Pedido $orderId movido para status $newStatus baseado no evento');
-          // }
         }
       }
     } catch (e, stack) {
@@ -281,7 +283,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  // Salva um pedido no cache
   Future<void> savePedidoToCache(PedidoModel pedido) async {
     try {
       await kronosRepository.addPedidoToCache(pedido);
@@ -291,13 +292,10 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  // // Carrega pedidos salvos do cache
   Future<void> loadSavedPedidos() async {
     try {
       developer.log("Carregando pedidos salvos do cache...");
       var pedidos = await kronosRepository.getPedidosCache();
-      // final prefs = await SharedPreferences.getInstance();
-      // List<String> pedidosIds = prefs.getStringList(_pedidosIdsKey) ?? [];
 
       Map<String, List<PedidoModel>> tempMap = {};
 
@@ -306,17 +304,12 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             ? mapApiStatusToCode(pedido.status)
             : _determineStatus(pedido);
 
-        // Atualiza o status do pedido antigo se ele estiver vazio
         if (pedido.status.isEmpty) {
           pedido.status = status;
-          // Salva o pedido com o status atualizado
           await savePedidoToCache(pedido);
-          developer.log(
-              "Atualizando status do pedido antigo ${pedido.id} para $status");
+          developer.log("Atualizando status do pedido antigo ${pedido.id} para $status");
         }
 
-        // Garantir que o pedido só esteja presente em uma categoria de status
-        // Remover o ID de qualquer outra lista de status
         for (var key in tempMap.keys) {
           tempMap[key]?.removeWhere((p) => p.id == pedido.id);
         }
@@ -330,30 +323,22 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         developer.log("Pedido carregado: ${pedido.id} (Status: $status)");
       }
 
-      // Atualiza o pedidosMap com os pedidos carregados
       pedidosMap = tempMap;
-
-      developer
-          .log("Carregamento concluído: ${pedidos.length} pedidos processados");
+      developer.log("Carregamento concluído: ${pedidos.length} pedidos processados");
     } catch (e) {
       developer.log("Erro ao carregar pedidos salvos: $e");
     }
   }
 
-  // Mapeia o status da API para o código interno
   String mapApiStatusToCode(String apiStatus) {
     final upperStatus = apiStatus.toUpperCase();
-
-    // Log para debug
     developer.log("Mapeando status: $apiStatus (uppercase: $upperStatus)");
 
-    // Verificação mais rígida para status de cancelamento
     if (upperStatus.contains('CAN') ||
         upperStatus.contains('CANCELLED') ||
         upperStatus.contains('CANCELLATION') ||
         upperStatus.contains('CANCEL')) {
-      developer.log(
-          "🔴 Status de CANCELAMENTO detectado: $apiStatus -> ${Consts.statusCancelled}");
+      developer.log("🔴 Status de CANCELAMENTO detectado: $apiStatus -> ${Consts.statusCancelled}");
       return Consts.statusCancelled;
     } else if (upperStatus.contains('PLC') || upperStatus.contains('PLACED')) {
       return Consts.statusPlaced;
@@ -372,18 +357,14 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       return Consts.statusConcluded;
     } else if (upperStatus.contains('DDCR') ||
         upperStatus.contains('DECLINED')) {
-      return 'DDCR'; // Novo status - Driver Declined/Delivery Declined
+      return 'DDCR';
     } else {
-      // Status desconhecido, vamos registrar para ajudar no diagnóstico
       developer.log("⚠️ Status desconhecido: $apiStatus, usando o padrão PLC");
-      return Consts.statusPlaced; // Status padrão se não puder determinar
+      return Consts.statusPlaced;
     }
   }
 
-  // Determina o status de um pedido com base em seus dados
   String _determineStatus(PedidoModel pedido) {
-    // Lógica simples para determinar o status com base no campo status do pedido
-    // ou outras propriedades se disponíveis
     return mapApiStatusToCode(pedido.status);
   }
 
@@ -392,6 +373,10 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     try {
       _batchNotifications = true;
+      
+      // Limpar confirmações expiradas antes de processar novos pedidos
+      await cleanExpiredConfirmations();
+      
       var events = await pollingRepository.getPolling();
 
       developer.log("Eventos recebidos: ${events.length}");
@@ -403,7 +388,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       for (var event in events) {
         developer.log("Processando evento: ${event.code} - ${event.id}");
         await handleNewEvent(event);
-
       }
 
       _logAllOrders();
@@ -444,7 +428,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     try {
       developer.log("Iniciando PedidosController...");
 
-      // Obter token de acesso válido
+      // Limpar confirmações expiradas ao iniciar
+      await cleanExpiredConfirmations();
+      
       token = await _authRepository.getValidAccessToken() ?? "";
       if (token.isEmpty) {
         throw Exception("Token de acesso inválido ou expirado");
@@ -453,9 +439,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       merchantRepository = MerchantRepository(Consts.baseUrl, token);
       pollingRepository = PollingRepository();
       orderRepository = OrderRepository(Consts.baseUrl, token);
-      //CARREGAR PEDIDOS DO CACHE
+      
       await loadSavedPedidos();
-      // Obter lojas do merchant
+      
       var lojas = await merchantRepository.getLojas();
 
       if (lojas.isEmpty) {
@@ -516,7 +502,11 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       isLoading = false;
       notifyListeners();
 
-      // Iniciar polling de eventos
+      // Configurar timer para limpar confirmações expiradas a cada hora
+      cleanupTimer = Timer.periodic(const Duration(hours: 1), (timer) async {
+        await cleanExpiredConfirmations();
+      });
+
       getPedidos().then((_) {
         getMerchantStatus();
         timer = Timer.periodic(
@@ -529,10 +519,18 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       haveError = true;
       errorMsg = err.toString();
       timer = null;
+      cleanupTimer?.cancel();
       isLoading = false;
       developer.log("Erro na inicialização: $err");
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    cleanupTimer?.cancel();
+    super.dispose();
   }
 
   void _logAllOrders() {

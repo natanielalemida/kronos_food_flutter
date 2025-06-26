@@ -1,10 +1,11 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:kronos_food/components/primeiro_acesso_dialog.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
-// import 'package:http/http.dart' as http;
 import 'package:kronos_food/service/preferences_service.dart';
 
 class AuthController extends ChangeNotifier {
@@ -55,8 +56,10 @@ class AuthController extends ChangeNotifier {
         var resultado = data['Resultado'];
 
         // Verificar se o servidor retornou tokens válidos
-        if (resultado['RefreshToken'] != null && resultado['RefreshToken'].isNotEmpty && 
-            resultado['AccessToken'] != null && resultado['AccessToken'].isNotEmpty) {
+        if (resultado['RefreshToken'] != null &&
+            resultado['RefreshToken'].isNotEmpty &&
+            resultado['AccessToken'] != null &&
+            resultado['AccessToken'].isNotEmpty) {
           // Salvar os tokens no repositório
           await authRepository.saveConfig({
             'accessToken': resultado['AccessToken'],
@@ -180,7 +183,7 @@ class AuthController extends ChangeNotifier {
   }
 
   // Novo método para login direto do usuário
-  Future<bool> loginUser(
+  Future<Object> loginUser(
       BuildContext context, String username, String password) async {
     final companyCode = await preferenceService.getCompanyCode() ?? '1';
     isAuthenticating.value = true;
@@ -194,7 +197,9 @@ class AuthController extends ChangeNotifier {
       //salve o kronosToken no estado: user['Resultado']['Usuario']['Hash'] ?? '';
       //esse token será usado para buscar os dados do ifood no backend
       String token = user['Resultado']['Usuario']['Hash'] ?? '';
+      int codigoUser = user['Resultado']['Usuario']['Codigo'];
       await authRepository.saveKronosToken(token);
+      await authRepository.saveCodeUser(codigoUser.toString());
       try {
         // Verificar se temos tokens do iFood disponíveis no backend
         final hasIfoodTokens = await checkIfoodTokens(token);
@@ -203,14 +208,14 @@ class AuthController extends ChangeNotifier {
           isAuthenticating.value = false;
           isAuthenticated.value = true;
           notifyListeners();
-          await getCodCaixa(context, token);
+
           return true;
         } else {
           // Se não temos tokens, precisamos fazer o primeiro acesso
           if (context.mounted) {
             await firstLogin(context);
           }
-          await getCodCaixa(context, token);
+
           isAuthenticating.value = false;
           notifyListeners();
           return isAuthenticated
@@ -228,24 +233,98 @@ class AuthController extends ChangeNotifier {
     return false;
   }
 
-  Future<bool> getCodCaixa(BuildContext context, String token) async {
+  Future<Object> abrirCaixa(BuildContext context, int codigo,
+      String dataAbertura, String valorSuprimentoAbertura) async {
     final serverIp = await preferenceService.getServerIp() ?? 'localhost';
     final codigoEmpresa = await preferenceService.getCompanyCode() ?? '1';
     final terminalCode = await preferenceService.getTerminalCode() ?? '1';
+    final kronosToken = await preferenceService.getKronosToken();
+
     isAuthenticating.value = true;
     haveError.value = false;
     notifyListeners();
 
-     var response = await dio.get('$serverIp/caixa/',
+    // Corrige valor no formato brasileiro para double
+    var valor = double.tryParse(valorSuprimentoAbertura.replaceAll(',', '.'));
+
+    // Converte string "dd/MM/yyyy HH:mm" para DateTime
+    DateTime dataConvertida;
+    try {
+      final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+      dataConvertida = dateFormat.parse(dataAbertura);
+    } catch (e) {
+      haveError.value = true;
+      isAuthenticating.value = false;
+      notifyListeners();
+      throw FormatException("Data inválida: $dataAbertura");
+    }
+
+    var data = {
+      "Codigo": codigo,
+      "DataAbertura": dataConvertida.toIso8601String(),
+      "ValorSuprimentoAbertura": valor
+    };
+
+    try {
+      var response = await dio.post('$serverIp/caixa/abrir',
+          options: Options(
+            headers: {
+              'Auth': kronosToken,
+              'Empresa': codigoEmpresa,
+              'Terminal': terminalCode
+            },
+          ),
+          data: data);
+
+      if (response.statusCode == 200) {
+        var body = response.data;
+
+        if (body['Status'] == 1) {
+          return true;
+        }
+      }
+    } catch (e) {
+      haveError.value = true;
+    } finally {
+      isAuthenticating.value = false;
+      notifyListeners();
+    }
+
+    return false;
+  }
+
+  Future<bool> getCodCaixa(BuildContext context) async {
+    final serverIp = await preferenceService.getServerIp() ?? 'localhost';
+    final codigoEmpresa = await preferenceService.getCompanyCode() ?? '1';
+    final terminalCode = await preferenceService.getTerminalCode() ?? '1';
+    final kronosToken = await preferenceService.getKronosToken();
+
+    isAuthenticating.value = true;
+    haveError.value = false;
+    notifyListeners();
+
+    var response = await dio.get('$serverIp/caixa/',
         options: Options(
-          headers: {'Auth': token, 'Empresa': codigoEmpresa, 'Terminal': terminalCode},
+          headers: {
+            'Auth': kronosToken,
+            'Empresa': codigoEmpresa,
+            'Terminal': terminalCode
+          },
         ));
 
     if (response.statusCode == 200) {
       var body = response.data;
 
-      if(body['Status'] == 1) {
-       await preferenceService.saveCodCaixa(body['Resultado']['Codigo'].toString());
+      if (body['Status'] == 1) {
+        await preferenceService.saveCodCaixa(jsonEncode({
+          "Codigo": body["Resultado"]["Codigo"],
+          "ValorSupProximoCaixa": body["Resultado"]["ValorSupProximoCaixa"]
+        }));
+        if (body['Resultado']['Situacao'] != 1) {
+          return false;
+        }
+
+        return true;
       }
     }
 

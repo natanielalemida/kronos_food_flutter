@@ -63,6 +63,27 @@ class OrderDeliveryInfo extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                if (order.orderType == "TAKEOUT")
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Consts.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.my_location, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        "Retirada no local",
+                        style: TextStyle(fontSize: 12, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),

@@ -300,6 +300,9 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                     widget.controller.selectedPedido.value?.status = 'CAN';
                   });
                 }
+
+              var service = KronosRepository();
+               service.cancelarPedido(widget.controller.selectedPedido.value, reason['description']);
                 return true;
               } else {
                 return false;

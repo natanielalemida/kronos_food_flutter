@@ -201,15 +201,33 @@ class OrderGroup extends StatelessWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            "#${order.displayId}",
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                              color: isSelected
-                                                  ? color
-                                                  : Colors.black87,
-                                            ),
+                                          Column(
+                                            children: [
+                                              if (order.orderType ==
+                                                  "TAKEOUT") ...[
+                                                Text(
+                                                  "#${order.displayId} - RETIRADA",
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                    color: isSelected
+                                                        ? color
+                                                        : Colors.black87,
+                                                  ),
+                                                ),
+                                              ] else ...[
+                                                Text(
+                                                  "#${order.displayId}",
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                    color: isSelected
+                                                        ? color
+                                                        : Colors.black87,
+                                                  ),
+                                                ),
+                                              ]
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           if (statusCode == "PLC") ...[

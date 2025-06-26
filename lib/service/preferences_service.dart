@@ -18,9 +18,17 @@ class PreferencesService {
     return prefs.getString(Consts.terminalCodeKey);
   }
 
-  Future<String?> getCodCaixa() async {
+  Future<Map<String, dynamic>?> getCodCaixaDecoded() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(Consts.codCaixa);
+    final jsonString = prefs.getString(Consts.codCaixa);
+
+    if (jsonString == null) return null;
+
+    try {
+      return jsonDecode(jsonString);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> saveCodCaixa(String cod) async {
@@ -97,6 +105,17 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(Consts.kronosTokenKey);
   }
+
+    Future<void> saveCodeUser(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(Consts.codeUser, code);
+  }
+
+  Future<String?> getCodeUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(Consts.codeUser);
+  }
+
 
   // Save refresh token
   Future<void> saveRefreshToken(String token) async {

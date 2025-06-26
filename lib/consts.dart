@@ -33,6 +33,7 @@ class Consts {
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String kronosTokenKey = 'kronos_token';
+  static const String codeUser = 'code_user';
   static const String configKey = 'config';
   static const String expirationTimeKey = 'expiration_time';
   static const String serverIpKey = 'server_ip';

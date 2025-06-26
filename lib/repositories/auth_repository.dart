@@ -22,6 +22,10 @@ class AuthRepository {
     await _preferencesService.saveKronosToken(token);
   }
 
+    Future<void> saveCodeUser(String code) async {
+    await _preferencesService.saveCodeUser(code);
+  }
+
   // Save tokens to preferences
   // Future<void> saveTokens(String refreshToken, String accessToken) async {
   //   await _preferencesService.saveRefreshToken(refreshToken);

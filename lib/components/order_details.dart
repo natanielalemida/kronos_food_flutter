@@ -134,7 +134,7 @@ class _OrderDetailsState extends State<OrderDetails> {
               ),
               pw.Center(
                 child: pw.Text(
-                  pedido.orderType,
+                  pedido.orderType == "TAKEOUT" ? 'RETIRADA' : pedido.orderType,
                   style: pw.TextStyle(font: font, fontSize: 9),
                 ),
               ),
