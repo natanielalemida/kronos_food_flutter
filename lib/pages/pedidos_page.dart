@@ -109,7 +109,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Image.network(
-                        'https://logodownload.org/wp-content/uploads/2017/05/ifood-logo-0.png',
+                        'https://drive.google.com/u/0/drive-viewer/AKGpihbvfwv6iMq69uuB-LX_p6OszAh8TNoAhQUIIJpYzVW0nFmjBJ6v_LKvTx10Jhziwnzb28epk7eBxScMMqkqOCRi7A5L4L0TkX4=s1600-rw-v1',
                         height: 24,
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(Icons.restaurant_menu,

@@ -487,12 +487,12 @@ class _LoginPageState extends State<LoginPage> {
                   Column(
                     children: [
                       Image.network(
-                        'https://logodownload.org/wp-content/uploads/2017/05/ifood-logo-0.png',
-                        height: 80,
+                        'https://drive.google.com/u/0/drive-viewer/AKGpihbvfwv6iMq69uuB-LX_p6OszAh8TNoAhQUIIJpYzVW0nFmjBJ6v_LKvTx10Jhziwnzb28epk7eBxScMMqkqOCRi7A5L4L0TkX4=s1600-rw-v1',
+                        height: 250,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            height: 80,
-                            width: 80,
+                            height: 250,
+                            width: 250,
                             decoration: BoxDecoration(
                               color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(40),
