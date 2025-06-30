@@ -42,7 +42,38 @@ class KronosRepository {
     }
   }
 
-  Future<bool> sendDespachar(PedidoModel pedido) async {
+    Future<List> getEntregadores() async {
+    final kronosToken = await _preferencesService.getKronosToken() ?? "";
+    final serverIp =
+        await _preferencesService.getServerIp() ?? "http://localhost:5000";
+    // final companyCode = await _preferencesService.getCompanyCode() ?? "";
+    final headers = {
+      'Content-Type': 'application/json',
+      'Auth': kronosToken,
+    };
+
+    final url = '$serverIp/funcionario/cargo/entregador';
+    final response = await dio
+        .get(url,
+            options: Options(
+              headers: headers,
+            ))
+        .timeout(
+          const Duration(seconds: 10),
+        );
+    if (response.statusCode == 200) {
+      var data = response.data;
+      if (data['Status'] != 1) {
+        throw Exception('Erro na resposta: ${data['Mensagem']}');
+      }
+      List items = data['Resultado'];
+      return items;
+    } else {
+      throw Exception('Falha ao carregar pedidos: ${response.statusCode}');
+    }
+  }
+
+  Future<bool> sendDespachar(PedidoModel pedido, int? Codigo) async {
     final kronosToken = await _preferencesService.getKronosToken() ?? "";
 
     final company = await _preferencesService.getCompanyCode() ?? "";
@@ -61,7 +92,8 @@ class KronosRepository {
     final url = '$serverIp/delivery/pedido/despachar';
     var body = {
       "IdPedidos": [pedido.id],
-      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String()
+      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String(),
+      "CodigoEntregador": Codigo
     };
     final response = await dio
         .put(

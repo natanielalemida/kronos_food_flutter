@@ -191,7 +191,7 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     var user =
-        await kronosLogin(username, password, 1, 1, int.parse(companyCode));
+        await kronosLogin(username, password, 9, 1, int.parse(companyCode));
 
     if (user['Status'] == 1) {
       //salve o kronosToken no estado: user['Resultado']['Usuario']['Hash'] ?? '';

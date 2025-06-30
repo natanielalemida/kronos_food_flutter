@@ -39,18 +39,12 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
   @override
   void didUpdateWidget(PedidoActionsButtons oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // if (oldWidget.statusOverride != widget.statusOverride ||
-    //     oldWidget.pedido.status != widget.pedido.status) {
-    //   _currentStatus = widget.statusOverride ?? widget.pedido.status;
-    // }
   }
 
   Future<void> _performAction(
-      Future<bool> Function() action, String actionName) async {
+      Future<bool> Function() action, String actionName, int? Codigo) async {
     if (_isLoading) return;
 
-    print(actionName);
     developer.log("action: ${actionName}");
 
     setState(() {
@@ -85,14 +79,13 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
             }
           });
 
-          // Chamadas assíncronas fora do setState
           if (actionName == 'Confirmação') {
-            await _addEventForStatus('CFM');
+            await _addEventForStatus('CFM', null);
           } else if (actionName == 'Despachar Pedido') {
-            await _addEventForStatus('DSP');
+            await _addEventForStatus('DSP', Codigo);
           } else if (actionName == 'Cancelamento') {
-            await _addEventForStatus('CAN');
-          } 
+            await _addEventForStatus('CAN', null);
+          }
 
           final currentPedido = widget.controller.selectedPedido.value;
           widget.controller.selectedPedido.value = null;
@@ -119,6 +112,135 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       }
     }
   }
+
+ Future<void> _showDeliveryPersonModal() async {
+  final pedido = widget.controller.selectedPedido.value;
+  if (pedido == null || pedido.delivery.deliveredBy != "MERCHANT") return;
+
+  var service = KronosRepository();
+  var deliveryPersons = await service.getEntregadores();
+
+  if (deliveryPersons.isEmpty) {
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Aviso'),
+        content: const Text('Nenhum entregador disponível no momento.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    return; // Sai da função
+  }
+
+  final TextEditingController searchController = TextEditingController();
+  List<Map<String, dynamic>>? filteredDeliveryPersons =
+      List.from(deliveryPersons);
+
+  await showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  "Selecione o entregador",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      filteredDeliveryPersons =
+                          deliveryPersons.where((person) {
+                        final name = person['Referencia'].toString().toLowerCase();
+                        final code = person['Codigo'].toString().toLowerCase();
+                        final search = value.toLowerCase();
+                        return name.contains(search) || code.contains(search);
+                      }).cast<Map<String, dynamic>>().toList();
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Pesquisar por nome ou código',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: filteredDeliveryPersons!.isEmpty
+                      ? const Center(child: Text('Nenhum entregador encontrado'))
+                      : ListView.builder(
+                          itemCount: filteredDeliveryPersons!.length,
+                          itemBuilder: (context, index) {
+                            final person = filteredDeliveryPersons![index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.delivery_dining,
+                                  color: Colors.orange,
+                                ),
+                                title: Text(person['Referencia']),
+                                subtitle: Text('Código: ${person['Codigo']}'),
+                                onTap: () {
+                                  Navigator.pop(context, person);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.grey[200],
+                  ),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  ).then((selectedPerson) async {
+    searchController.dispose();
+
+    if (selectedPerson != null && mounted) {
+      developer.log(
+        "Entregador selecionado: ${selectedPerson['Referencia']} (ID: ${selectedPerson['Codigo']})",
+      );
+
+      await _performAction(
+        () => _actionsService.dispatchOrder(pedido.id),
+        'Despachar Pedido',
+        selectedPerson['Codigo'],
+      );
+    }
+  });
+}
+
 
   Future<void> _showCancellationDialog() async {
     if (_isLoading) return;
@@ -294,21 +416,22 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                 .then((value) {
               if (value) {
                 widget.controller.selectedPedido.value?.status = 'CAN';
-                print('🔴 Status do pedido definido como cancelado localmente');
                 if (mounted) {
                   setState(() {
                     widget.controller.selectedPedido.value?.status = 'CAN';
                   });
                 }
 
-              var service = KronosRepository();
-               service.cancelarPedido(widget.controller.selectedPedido.value, reason['description']);
+                var service = KronosRepository();
+                service.cancelarPedido(widget.controller.selectedPedido.value,
+                    reason['description']);
                 return true;
               } else {
                 return false;
               }
             }),
             'Cancelamento',
+            null
           );
         }
       }
@@ -321,23 +444,20 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     }
   }
 
-  // Adiciona um evento ao pedido para o status especificado
-  Future<void> _addEventForStatus(String statusCode) async {
+  Future<void> _addEventForStatus(String statusCode, int? Codigo) async {
     if (widget.controller.selectedPedido.value == null) return;
 
     final pedido = widget.controller.selectedPedido.value!;
 
     var instace = KronosRepository();
     if (statusCode == 'DSP') {
-      var result = await instace.sendDespachar(pedido);
+      var result = await instace.sendDespachar(pedido, Codigo);
       if (!result) return;
     }
 
-    // Verificar se já existe um evento com este código
     final hasEvent = pedido.events.any((e) => e.code == statusCode);
 
     if (!hasEvent) {
-      // Criar um novo evento com o código de status
       final newEvent = EventModel(
         id: 'local_${DateTime.now().millisecondsSinceEpoch}',
         code: statusCode,
@@ -348,7 +468,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       );
 
       pedido.events.add(newEvent);
-      print("✅ Evento adicionado localmente para o status: $statusCode");
+      developer
+          .log("✅ Evento adicionado localmente para o status: $statusCode");
     }
   }
 
@@ -357,11 +478,6 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     final status =
         widget.controller.selectedPedido.value?.status.toUpperCase() ?? "";
 
-    // Para debugging
-    print(
-        "Status do pedido para botões: $status (original: ${widget.controller.selectedPedido.value?.status})");
-
-    // Se o pedido estiver cancelado, não exibe botões de ação
     if (status.contains("CAN") || status.contains("CANCELLED")) {
       return [
         Container(
@@ -388,10 +504,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
         )
       ];
     }
-    // if (response.statusCode == 200) {
-    //     await _kronosRepository.savePedidoToKronos(pedido)
-    //   }
-    // Pedido recebido (PLC/PLACED) -> Pode confirmar
+
     if (status.contains("PLC") || status.contains("PLACED")) {
       buttons.add(
         ElevatedButton(
@@ -407,6 +520,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                 return sucess;
               },
               'Confirmação',
+              null
             );
           },
           style: ElevatedButton.styleFrom(
@@ -416,17 +530,22 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       );
     }
 
-    // Em preparação (CFM/CONFIRMED/STP) -> Pode marcar como pronto para retirada
     if (status.contains("CFM") ||
         status.contains("CONFIRMED") ||
         status.contains("STP")) {
       buttons.add(
         ElevatedButton(
-          onPressed: () async => await _performAction(
-            () => _actionsService.dispatchOrder(
-                widget.controller.selectedPedido.value?.id ?? ''),
-            'Despachar Pedido',
-          ),
+          onPressed: () async {
+            final pedido = widget.controller.selectedPedido.value;
+            if (pedido?.delivery?.deliveredBy == "MERCHANT") {
+              await _showDeliveryPersonModal();
+            } else {
+              await _performAction(
+                () => _actionsService.dispatchOrder(pedido?.id ?? ''),
+                'Despachar Pedido', null
+              );
+            }
+          },
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange, foregroundColor: Colors.white),
           child: const Text('Despachar Pedido'),
@@ -434,21 +553,6 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       );
     }
 
-    // Pronto para retirada (RTP/READY_TO_PICKUP) -> Pode despachar
-    // if (status.contains("RTP") || status.contains("READY_TO_PICKUP")) {
-    //   buttons.add(
-    //     ElevatedButton(
-    //       onPressed: () => _performAction(
-    //         () => _actionsService.dispatchOrder(widget.pedido.id),
-    //         'Despacho',
-    //       ),
-    //       style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-    //       child: const Text('Despachar Pedido'),
-    //     ),
-    //   );
-    // }
-
-    // Qualquer estado exceto concluído ou cancelado -> Pode solicitar cancelamento
     if (!status.contains("CON") &&
         !status.contains("CONCLUDED") &&
         !status.contains("CAN") &&

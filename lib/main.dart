@@ -1,12 +1,29 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/pages/login_page.dart';
+import 'package:window_manager/window_manager.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
+
+  await windowManager.ensureInitialized();
+
+  WindowOptions options = const WindowOptions(
+    size: Size(1280, 720),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+  );
+
+  windowManager.waitUntilReadyToShow(options, () async {
+    await windowManager.maximize(); 
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
   runApp(const MyApp());
 }
 
