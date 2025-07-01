@@ -108,8 +108,8 @@ class _PedidosPageState extends State<PedidosPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.network(
-                        'https://logodownload.org/wp-content/uploads/2017/05/ifood-logo-0.png',
+                     Image.asset(
+                        'assets/images/LOGO-KRONOS-food-icon-sync.png',
                         height: 24,
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(Icons.restaurant_menu,
