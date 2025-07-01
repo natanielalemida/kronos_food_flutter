@@ -113,134 +113,139 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     }
   }
 
- Future<void> _showDeliveryPersonModal() async {
-  final pedido = widget.controller.selectedPedido.value;
-  if (pedido == null || pedido.delivery.deliveredBy != "MERCHANT") return;
+  Future<void> _showDeliveryPersonModal() async {
+    final pedido = widget.controller.selectedPedido.value;
+    if (pedido == null || pedido.delivery.deliveredBy != "MERCHANT") return;
 
-  var service = KronosRepository();
-  var deliveryPersons = await service.getEntregadores();
+    var service = KronosRepository();
+    var deliveryPersons = await service.getEntregadores();
 
-  if (deliveryPersons.isEmpty) {
+    if (deliveryPersons.isEmpty) {
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Aviso'),
+          content: const Text('Nenhum entregador disponível no momento.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return; // Sai da função
+    }
+
+    final TextEditingController searchController = TextEditingController();
+    List<Map<String, dynamic>>? filteredDeliveryPersons =
+        List.from(deliveryPersons);
+
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Aviso'),
-        content: const Text('Nenhum entregador disponível no momento.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-    return; // Sai da função
-  }
-
-  final TextEditingController searchController = TextEditingController();
-  List<Map<String, dynamic>>? filteredDeliveryPersons =
-      List.from(deliveryPersons);
-
-  await showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  "Selecione o entregador",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: searchController,
-                  onChanged: (value) {
-                    setState(() {
-                      filteredDeliveryPersons =
-                          deliveryPersons.where((person) {
-                        final name = person['Referencia'].toString().toLowerCase();
-                        final code = person['Codigo'].toString().toLowerCase();
-                        final search = value.toLowerCase();
-                        return name.contains(search) || code.contains(search);
-                      }).cast<Map<String, dynamic>>().toList();
-                    });
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Pesquisar por nome ou código',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    "Selecione o entregador",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: filteredDeliveryPersons!.isEmpty
-                      ? const Center(child: Text('Nenhum entregador encontrado'))
-                      : ListView.builder(
-                          itemCount: filteredDeliveryPersons!.length,
-                          itemBuilder: (context, index) {
-                            final person = filteredDeliveryPersons![index];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.delivery_dining,
-                                  color: Colors.orange,
-                                ),
-                                title: Text(person['Referencia']),
-                                subtitle: Text('Código: ${person['Codigo']}'),
-                                onTap: () {
-                                  Navigator.pop(context, person);
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.grey[200],
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        filteredDeliveryPersons = deliveryPersons
+                            .where((person) {
+                              final name =
+                                  person['Referencia'].toString().toLowerCase();
+                              final code =
+                                  person['Codigo'].toString().toLowerCase();
+                              final search = value.toLowerCase();
+                              return name.contains(search) ||
+                                  code.contains(search);
+                            })
+                            .cast<Map<String, dynamic>>()
+                            .toList();
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Pesquisar por nome ou código',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
-                  child: const Text('Cancelar'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: filteredDeliveryPersons!.isEmpty
+                        ? const Center(
+                            child: Text('Nenhum entregador encontrado'))
+                        : ListView.builder(
+                            itemCount: filteredDeliveryPersons!.length,
+                            itemBuilder: (context, index) {
+                              final person = filteredDeliveryPersons![index];
+                              return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.delivery_dining,
+                                    color: Colors.orange,
+                                  ),
+                                  title: Text(person['Referencia']),
+                                  subtitle: Text('Código: ${person['Codigo']}'),
+                                  onTap: () {
+                                    Navigator.pop(context, person);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.grey[200],
+                    ),
+                    child: const Text('Cancelar'),
+                  ),
+                ],
+              ),
             ),
-          ),
+          );
+        },
+      ),
+    ).then((selectedPerson) async {
+      searchController.dispose();
+
+      if (selectedPerson != null && mounted) {
+        developer.log(
+          "Entregador selecionado: ${selectedPerson['Referencia']} (ID: ${selectedPerson['Codigo']})",
         );
-      },
-    ),
-  ).then((selectedPerson) async {
-    searchController.dispose();
 
-    if (selectedPerson != null && mounted) {
-      developer.log(
-        "Entregador selecionado: ${selectedPerson['Referencia']} (ID: ${selectedPerson['Codigo']})",
-      );
-
-      await _performAction(
-        () => _actionsService.dispatchOrder(pedido.id),
-        'Despachar Pedido',
-        selectedPerson['Codigo'],
-      );
-    }
-  });
-}
-
+        await _performAction(
+          () => _actionsService.dispatchOrder(pedido.id),
+          'Despachar Pedido',
+          selectedPerson['Codigo'],
+        );
+      }
+    });
+  }
 
   Future<void> _showCancellationDialog() async {
     if (_isLoading) return;
@@ -403,36 +408,43 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
             ],
           ),
         );
-
+        var statusBefore = widget.controller.selectedPedido.value?.status;
         if (confirmed == true) {
           await _performAction(
-            () => _actionsService
-                .requestCancellation(
-              widget.controller.selectedPedido.value?.id ?? "",
-              reason['cancelCodeId'],
-              cancellationDescription:
-                  textController.text.isNotEmpty ? textController.text : null,
-            )
-                .then((value) {
-              if (value) {
-                widget.controller.selectedPedido.value?.status = 'CAN';
-                if (mounted) {
-                  setState(() {
-                    widget.controller.selectedPedido.value?.status = 'CAN';
-                  });
-                }
+              () => _actionsService
+                      .requestCancellation(
+                    widget.controller.selectedPedido.value?.id ?? "",
+                    reason['cancelCodeId'],
+                    cancellationDescription: textController.text.isNotEmpty
+                        ? textController.text
+                        : null,
+                  )
+                      .then((value) {
+                    if (value) {
+                      widget.controller.selectedPedido.value?.status = 'CAN';
+                      if (mounted) {
+                        setState(() {
+                          widget.controller.selectedPedido.value?.status =
+                              'CAN';
+                        });
+                      }
 
-                var service = KronosRepository();
-                service.cancelarPedido(widget.controller.selectedPedido.value,
-                    reason['description']);
-                return true;
-              } else {
-                return false;
-              }
-            }),
-            'Cancelamento',
-            null
-          );
+                      if (statusBefore!.contains("PLC") ||
+                          statusBefore!.contains("PLACED")) {
+                        return true;
+                      }
+
+                      var service = KronosRepository();
+                      service.cancelarPedido(
+                          widget.controller.selectedPedido.value,
+                          reason['description']);
+                      return true;
+                    } else {
+                      return false;
+                    }
+                  }),
+              'Cancelamento',
+              null);
         }
       }
     } catch (e) {
@@ -509,19 +521,15 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       buttons.add(
         ElevatedButton(
           onPressed: () async {
-            await _performAction(
-              () async {
-                var sucess = await _actionsService.confirmOrder(
-                    widget.controller.selectedPedido.value?.id ?? "");
-                if (sucess) {
-                  await _kronosRepository.savePedidoToKronos(
-                      widget.controller.selectedPedido.value!);
-                }
-                return sucess;
-              },
-              'Confirmação',
-              null
-            );
+            await _performAction(() async {
+              var sucess = await _actionsService.confirmOrder(
+                  widget.controller.selectedPedido.value?.id ?? "");
+              if (sucess) {
+                await _kronosRepository.savePedidoToKronos(
+                    widget.controller.selectedPedido.value!);
+              }
+              return sucess;
+            }, 'Confirmação', null);
           },
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green, foregroundColor: Colors.white),
@@ -541,9 +549,9 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
               await _showDeliveryPersonModal();
             } else {
               await _performAction(
-                () => _actionsService.dispatchOrder(pedido?.id ?? ''),
-                'Despachar Pedido', null
-              );
+                  () => _actionsService.dispatchOrder(pedido?.id ?? ''),
+                  'Despachar Pedido',
+                  null);
             }
           },
           style: ElevatedButton.styleFrom(

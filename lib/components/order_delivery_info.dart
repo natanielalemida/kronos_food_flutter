@@ -63,8 +63,7 @@ class OrderDeliveryInfo extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                if (order.orderType == "TAKEOUT")
+              if (order.orderType == "TAKEOUT")
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -84,8 +83,7 @@ class OrderDeliveryInfo extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                if (order.delivery.nomeEntregador.isNotEmpty)
+              if (order.delivery.nomeEntregador.isNotEmpty) ...[
                 const SizedBox(width: 20),
                 Container(
                   padding:
@@ -97,14 +95,18 @@ class OrderDeliveryInfo extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.motorcycle, size: 14, color: Colors.white),
+                      const Icon(Icons.motorcycle,
+                          size: 14, color: Colors.white),
                       const SizedBox(width: 4),
-                      Text(order.delivery.nomeEntregador,
-                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                      Text(
+                        order.delivery.nomeEntregador,
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.white),
                       ),
                     ],
                   ),
                 ),
+              ]
             ],
           ),
           const SizedBox(height: 12),
