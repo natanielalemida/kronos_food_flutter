@@ -12,6 +12,8 @@ import 'package:kronos_food/repositories/kronos_repository.dart';
 import 'package:kronos_food/repositories/merchant_repository.dart';
 import 'package:kronos_food/repositories/order_repository.dart';
 import 'package:kronos_food/repositories/polling_repository.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 enum MerchantStatus { ok, warning, closed, error }
 
@@ -20,10 +22,14 @@ enum OrderTimming { immediate, scheduled }
 enum OrderType { delivery, takeout }
 
 class PedidosController extends ValueNotifier<List<dynamic>> {
-  PedidosController() : super([]);
+  PedidosController() : super([]) {
+    _initNotifications();
+    _initAudioPlayer();
+  }
+
   late bool isLoading;
   late String token;
-  late Timer? timer;
+  late Timer? timerMake;
   late Timer? cleanupTimer;
   final kronosRepository = KronosRepository();
 
@@ -31,8 +37,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   late PollingRepository pollingRepository;
   late OrderRepository orderRepository;
   late MerchantModel loja;
-  ValueNotifier<PedidoModel?> selectedPedido =
-      ValueNotifier<PedidoModel?>(null);
+  ValueNotifier<PedidoModel?> selectedPedido = ValueNotifier<PedidoModel?>(null);
   bool haveError = false;
   String errorMsg = "";
   Map<String, List<PedidoModel>> pedidosMap = {};
@@ -41,8 +46,85 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   bool _batchNotifications = false;
   bool _needsNotification = false;
 
+  // Notificações e áudio
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final Set<String> _notifiedPedidos = {}; // Para rastrear pedidos já notificados
+
   final merchantStatus = ValueNotifier<MerchantStatus>(MerchantStatus.closed);
   final orderTimming = ValueNotifier<OrderTimming>(OrderTimming.immediate);
+
+  Future<void> _initNotifications() async {
+      const AndroidInitializationSettings androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+
+      final DarwinInitializationSettings iosSettings =
+          DarwinInitializationSettings(
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+
+      const WindowsInitializationSettings windowsSettings =
+          WindowsInitializationSettings(
+        appName: 'Kronos Food',
+        appUserModelId: 'Arc.KronosFood',
+        guid: '42b0f346-843d-4583-bc81-bffe6f0507bc',
+      );
+
+      final InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+        macOS: iosSettings,
+        windows: windowsSettings,
+      );
+
+      await _notificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          // Apenas loga o clique - o plugin já traz o app para primeiro plano
+        },
+      );
+  }
+
+  Future<void> _initAudioPlayer() async {
+    await _audioPlayer.setReleaseMode(ReleaseMode.release);
+  }
+
+  Future<void> _playNotificationSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+      developer.log('Som de notificação tocado');
+    } catch (e) {
+      developer.log('Erro ao tocar som de notificação: $e');
+    }
+  }
+
+  Future<void> _showNewOrderNotification(PedidoModel pedido) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'new_orders_channel',
+      'Novos Pedidos',
+      channelDescription: 'Notificações para novos pedidos recebidos',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: false,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'),
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _notificationsPlugin.show(
+      pedido.id.hashCode,
+      'Novo Pedido Recebido!',
+      'Pedido #${pedido.displayId}',
+      platformChannelSpecifics,
+    );
+
+    developer.log('Notificação exibida para o pedido ${pedido.id}');
+  }
 
   // Métodos para gerenciar pedidos confirmados
   Future<bool> isPedidoConfirmed(String pedidoId) async {
@@ -50,11 +132,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     final timestamp = prefs.getInt('confirmed_${pedidoId}_timestamp');
     if (timestamp == null) return false;
     
-    // Verifica se já passou 8 horas (8 * 60 * 60 * 1000 ms)
     final now = DateTime.now().millisecondsSinceEpoch;
     final eightHoursInMs = 8 * 60 * 60 * 1000;
     if (now - timestamp > eightHoursInMs) {
-      // Remove o pedido confirmado expirado
       await prefs.remove('confirmed_$pedidoId');
       await prefs.remove('confirmed_${pedidoId}_timestamp');
       developer.log("♻️ Confirmação expirada removida para pedido $pedidoId");
@@ -226,6 +306,13 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             String status = mapApiStatusToCode(
                 updatedPedido.status.isEmpty ? eventCode : updatedPedido.status);
 
+            // Verificar se é um novo pedido (status PLC) e ainda não foi notificado
+            if (status == Consts.statusPlaced && !_notifiedPedidos.contains(orderId)) {
+              _notifiedPedidos.add(orderId);
+              await _playNotificationSound();
+              await _showNewOrderNotification(updatedPedido);
+            }
+
             // Verificação e envio de confirmação
             if (status == 'CON') {
               bool alreadyConfirmed = await isPedidoConfirmed(updatedPedido.id);
@@ -374,7 +461,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     try {
       _batchNotifications = true;
       
-      // Limpar confirmações expiradas antes de processar novos pedidos
       await cleanExpiredConfirmations();
       
       var events = await pollingRepository.getPolling();
@@ -427,9 +513,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     try {
       developer.log("Iniciando PedidosController...");
-
-      // Limpar confirmações expiradas ao iniciar
-      await cleanExpiredConfirmations();
       
       token = await _authRepository.getValidAccessToken() ?? "";
       if (token.isEmpty) {
@@ -502,14 +585,15 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       isLoading = false;
       notifyListeners();
 
-      // Configurar timer para limpar confirmações expiradas a cada hora
-      cleanupTimer = Timer.periodic(const Duration(hours: 1), (timer) async {
+      cleanupTimer = Timer.periodic(
+            const Duration(seconds: Consts.pollingIntervalSeconds),
+            (timer) async {
         await cleanExpiredConfirmations();
       });
 
       getPedidos().then((_) {
         getMerchantStatus();
-        timer = Timer.periodic(
+        timerMake = Timer.periodic(
             const Duration(seconds: Consts.pollingIntervalSeconds),
             (timer) async {
           await getPedidos();
@@ -518,8 +602,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     } catch (err) {
       haveError = true;
       errorMsg = err.toString();
-      timer = null;
-      cleanupTimer?.cancel();
+      timerMake = null;
+      cleanupTimer = null;
       isLoading = false;
       developer.log("Erro na inicialização: $err");
       notifyListeners();
@@ -528,8 +612,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   @override
   void dispose() {
-    timer?.cancel();
+    timerMake?.cancel();
     cleanupTimer?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 

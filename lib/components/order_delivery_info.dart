@@ -84,6 +84,27 @@ class OrderDeliveryInfo extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                if (order.delivery.nomeEntregador.isNotEmpty)
+                const SizedBox(width: 20),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Consts.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.motorcycle, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(order.delivery.nomeEntregador,
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),

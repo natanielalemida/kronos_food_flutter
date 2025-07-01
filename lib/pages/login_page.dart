@@ -159,7 +159,9 @@ class _LoginPageState extends State<LoginPage> {
             style: const TextStyle(fontSize: 14),
             enabled: enabled,
             keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))],
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))
+            ],
             decoration: InputDecoration(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -213,14 +215,19 @@ class _LoginPageState extends State<LoginPage> {
                   spacing: 16,
                   runSpacing: 16,
                   children: [
-                    _buildFormField('Data e Hora', _dataHoraController, width: 200),
-                    _buildFormField('Terminal', _terminalController, enabled: false, width: 150),
-                    _buildFormField('Usuário', _usuarioController, enabled: false, width: 150),
+                    _buildFormField('Data e Hora', _dataHoraController,
+                        width: 200),
+                    _buildFormField('Terminal', _terminalController,
+                        enabled: false, width: 150),
+                    _buildFormField('Usuário', _usuarioController,
+                        enabled: false, width: 150),
                   ],
                 ),
                 const SizedBox(height: 24),
-                if (_supAnteriorController.text.isNotEmpty && _supAnteriorController.text != "0,00")
-                  _buildFormField('Saldo Anterior', _supAnteriorController, enabled: false)
+                if (_supAnteriorController.text.isNotEmpty &&
+                    _supAnteriorController.text != "0,00")
+                  _buildFormField('Saldo Anterior', _supAnteriorController,
+                      enabled: false)
                 else
                   _buildFormField('Saldo a Adicionar', _supAdicionarController),
                 const SizedBox(height: 32),
@@ -237,7 +244,8 @@ class _LoginPageState extends State<LoginPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Consts.primaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -257,7 +265,8 @@ class _LoginPageState extends State<LoginPage> {
   void _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      await _salvarCredenciais(_usernameController.text, _passwordController.text);
+      await _salvarCredenciais(
+          _usernameController.text, _passwordController.text);
 
       try {
         final loginSuccessful = await _authController.loginUser(
@@ -287,7 +296,9 @@ class _LoginPageState extends State<LoginPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao efetuar login: ${e.toString()}'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text('Erro ao efetuar login: ${e.toString()}'),
+                backgroundColor: Colors.red),
           );
         }
       } finally {
@@ -358,7 +369,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Image.asset(
                         'assets/images/LOGO-KRONOS-food-icon-sync.png',
-                        height: 250,
+                        height: 230,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             height: 250,
@@ -423,8 +434,9 @@ class _LoginPageState extends State<LoginPage> {
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 14),
                             ),
-                            validator: (value) =>
-                                value?.isEmpty ?? true ? 'Digite seu usuário' : null,
+                            validator: (value) => value?.isEmpty ?? true
+                                ? 'Digite seu usuário'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -437,8 +449,8 @@ class _LoginPageState extends State<LoginPage> {
                                 icon: Icon(_obscurePassword
                                     ? Icons.visibility_off
                                     : Icons.visibility),
-                                onPressed: () =>
-                                    setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -446,8 +458,9 @@ class _LoginPageState extends State<LoginPage> {
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 14),
                             ),
-                            validator: (value) =>
-                                value?.isEmpty ?? true ? 'Digite sua senha' : null,
+                            validator: (value) => value?.isEmpty ?? true
+                                ? 'Digite sua senha'
+                                : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(
@@ -475,7 +488,8 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                     )
                                   : const Text('ENTRAR',
-                                      style: TextStyle(fontWeight: FontWeight.bold)),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
                             ),
                           ),
                           if (!_serverConfigured) ...[
@@ -497,7 +511,8 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ConfigPage()),
+                        MaterialPageRoute(
+                            builder: (context) => const ConfigPage()),
                       ).then((_) => _verificarConfiguracaoServidor());
                     },
                     child: const Row(

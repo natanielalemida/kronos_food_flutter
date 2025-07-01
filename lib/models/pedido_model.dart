@@ -230,7 +230,8 @@ class Delivery {
   final DateTime deliveryDateTime;
   final DeliveryAddress deliveryAddress;
   final String pickupCode;
-  final String observations; // Adicionado para compatibilidade com C#
+  final String nomeEntregador;
+  final String observations; 
 
   Delivery({
     required this.mode,
@@ -239,6 +240,7 @@ class Delivery {
     required this.deliveryDateTime,
     required this.deliveryAddress,
     required this.pickupCode,
+    this.nomeEntregador = '',
     this.observations = '', // Novo campo com valor padrão vazio
   });
 
@@ -257,6 +259,7 @@ class Delivery {
           ? DeliveryAddress.fromKronos(json['DeliveryAddress'])
           : DeliveryAddress.empty(),
       pickupCode: json['PickupCode'] ?? '',
+      nomeEntregador: json['NomeEntregador'] ?? '',
       observations: json['Observations'] ?? '', // Parse do novo campo
     );
   }
@@ -276,7 +279,8 @@ class Delivery {
           ? DeliveryAddress.fromJson(json['deliveryAddress'])
           : DeliveryAddress.empty(),
       pickupCode: json['pickupCode'] ?? '',
-      observations: json['observations'] ?? '', // Parse do novo campo
+      nomeEntregador: json['nomeEntregador'] ?? '',
+      observations: json['observations'] ?? '',
     );
   }
 
