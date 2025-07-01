@@ -361,8 +361,8 @@ class _LoginPageState extends State<LoginPage> {
                         height: 250,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            height: 80,
-                            width: 80,
+                            height: 250,
+                            width: 250,
                             decoration: BoxDecoration(
                               color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(40),
