@@ -68,6 +68,39 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
+  Future<void> cancelar(PedidoModel pedidoParaCancelar) async {
+  try {
+    bool pedidoAtualizado = false;
+
+    // Percorre todas as listas de status
+    pedidosMap.forEach((status, pedidos) {
+      // Encontra o pedido na lista atual
+      final pedidoIndex = pedidos.indexWhere((p) => p.id == pedidoParaCancelar.id);
+      
+      if (pedidoIndex != -1) {
+        // Atualiza APENAS o status do pedido existente
+        pedidos[pedidoIndex].status = 'CAN';
+        pedidos[pedidoIndex].statusCode = Consts.statusCancelled;
+        pedidoAtualizado = true;
+        
+        developer.log('🔄 Pedido ${pedidoParaCancelar.id} atualizado para CANCELADO na lista $status');
+      }
+    });
+
+    if (pedidoAtualizado) {
+      // Atualiza também o pedido no cache
+      await savePedidoToCache(pedidoParaCancelar);
+      notifyListeners();
+    } else {
+      developer.log('⚠️ Pedido ${pedidoParaCancelar.id} não encontrado nas listas');
+    }
+
+  } catch (e) {
+    developer.log('❌ Erro ao cancelar pedido: $e');
+    throw Exception('Falha na atualização do pedido');
+  }
+}
+
   Future<void> dispararNotificacaoNativaPowerShell({
     required String head,
     required String body,

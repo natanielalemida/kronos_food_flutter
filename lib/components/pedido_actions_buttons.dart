@@ -429,15 +429,23 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                         });
                       }
 
+                      widget.controller.cancelar(widget.controller.selectedPedido.value!);
+
+                      debugPrint('✅ Notificação: $statusBefore');
+
                       if (statusBefore!.contains("PLC") ||
-                          statusBefore!.contains("PLACED")) {
+                          statusBefore.contains("PLACED")) {
                         return true;
                       }
+
+                      debugPrint('passou');
 
                       var service = KronosRepository();
                       service.cancelarPedido(
                           widget.controller.selectedPedido.value,
-                          reason['description']);
+                          reason['description']).then((value) {
+                            return true;
+                          });
                       return true;
                     } else {
                       return false;
@@ -466,6 +474,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       var result = await instace.sendDespachar(pedido, Codigo);
       if (!result) return;
     }
+
+        debugPrint('✅ Notificação ativada: ${statusCode}');
 
     final hasEvent = pedido.events.any((e) => e.code == statusCode);
 
