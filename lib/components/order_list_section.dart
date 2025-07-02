@@ -40,7 +40,6 @@ class OrderListSection extends StatelessWidget {
       child: ListenableBuilder(
         listenable: orderTimming,
         builder: (context, child) {
-          // Calcular totais de pedidos
           final totalScheduledOrders = pedidosMap.values.fold<int>(
               0,
               (sum, list) =>

@@ -13,7 +13,9 @@ import 'package:kronos_food/repositories/merchant_repository.dart';
 import 'package:kronos_food/repositories/order_repository.dart';
 import 'package:kronos_food/repositories/polling_repository.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path/path.dart' as path;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:win_toast/win_toast.dart';
 
 enum MerchantStatus { ok, warning, closed, error }
 
@@ -23,7 +25,6 @@ enum OrderType { delivery, takeout }
 
 class PedidosController extends ValueNotifier<List<dynamic>> {
   PedidosController() : super([]) {
-    _initNotifications();
     _initAudioPlayer();
   }
 
@@ -37,7 +38,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   late PollingRepository pollingRepository;
   late OrderRepository orderRepository;
   late MerchantModel loja;
-  ValueNotifier<PedidoModel?> selectedPedido = ValueNotifier<PedidoModel?>(null);
+  ValueNotifier<PedidoModel?> selectedPedido =
+      ValueNotifier<PedidoModel?>(null);
   bool haveError = false;
   String errorMsg = "";
   Map<String, List<PedidoModel>> pedidosMap = {};
@@ -48,44 +50,10 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   // Notificações e áudio
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
-  final Set<String> _notifiedPedidos = {}; // Para rastrear pedidos já notificados
+  final Set<String> _notifiedPedidos = {};
 
   final merchantStatus = ValueNotifier<MerchantStatus>(MerchantStatus.closed);
   final orderTimming = ValueNotifier<OrderTimming>(OrderTimming.immediate);
-
-  Future<void> _initNotifications() async {
-      const AndroidInitializationSettings androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-
-      final DarwinInitializationSettings iosSettings =
-          DarwinInitializationSettings(
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
-
-      const WindowsInitializationSettings windowsSettings =
-          WindowsInitializationSettings(
-        appName: 'Kronos Food',
-        appUserModelId: 'Arc.KronosFood',
-        guid: '42b0f346-843d-4583-bc81-bffe6f0507bc',
-      );
-
-      final InitializationSettings initializationSettings =
-          InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-        macOS: iosSettings,
-        windows: windowsSettings,
-      );
-
-      await _notificationsPlugin.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          // Apenas loga o clique - o plugin já traz o app para primeiro plano
-        },
-      );
-  }
 
   Future<void> _initAudioPlayer() async {
     await _audioPlayer.setReleaseMode(ReleaseMode.release);
@@ -100,38 +68,38 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  Future<void> _showNewOrderNotification(PedidoModel pedido) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'new_orders_channel',
-      'Novos Pedidos',
-      channelDescription: 'Notificações para novos pedidos recebidos',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: false,
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound('notification'),
-    );
+  Future<void> dispararNotificacaoNativaPowerShell({
+    required String head,
+    required String body,
+    required String imagePath,
+    required String idPedido,
+  }) async {
+    final xml = """
+<?xml version="1.0" encoding="UTF-8"?>
+<toast launch="action=viewConversation&amp;conversationId=$idPedido">
+   <visual>
+      <binding template="ToastGeneric">
+         <text>$head</text>
+         <text>$body</text>
+      </binding>
+   </visual>
 
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+</toast>
+""";
 
-    await _notificationsPlugin.show(
-      pedido.id.hashCode,
-      'Novo Pedido Recebido!',
-      'Pedido #${pedido.displayId}',
-      platformChannelSpecifics,
-    );
+    //  <actions>
+    //     <action content="Confirmar" activationType="background" arguments="action=reply&amp;conversationId=$idPedido" />
+    //  </actions>
 
-    developer.log('Notificação exibida para o pedido ${pedido.id}');
+    await WinToast.instance()
+        .showCustomToast(xml: xml, tag: 'tag1', group: 'group1');
   }
 
-  // Métodos para gerenciar pedidos confirmados
   Future<bool> isPedidoConfirmed(String pedidoId) async {
     final prefs = await SharedPreferences.getInstance();
     final timestamp = prefs.getInt('confirmed_${pedidoId}_timestamp');
     if (timestamp == null) return false;
-    
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final eightHoursInMs = 8 * 60 * 60 * 1000;
     if (now - timestamp > eightHoursInMs) {
@@ -146,17 +114,16 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   Future<void> markPedidoAsConfirmed(String pedidoId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('confirmed_$pedidoId', true);
-    await prefs.setInt('confirmed_${pedidoId}_timestamp', 
+    await prefs.setInt('confirmed_${pedidoId}_timestamp',
         DateTime.now().millisecondsSinceEpoch);
     developer.log("✅ Pedido $pedidoId marcado como confirmado");
   }
 
   Future<void> clearConfirmedPedidos() async {
     final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((key) => 
-        key.startsWith('confirmed_') && 
-        !key.endsWith('_timestamp'));
-    
+    final keys = prefs.getKeys().where(
+        (key) => key.startsWith('confirmed_') && !key.endsWith('_timestamp'));
+
     for (var key in keys) {
       final pedidoId = key.replaceFirst('confirmed_', '');
       await prefs.remove(key);
@@ -167,24 +134,25 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   Future<void> cleanExpiredConfirmations() async {
     final prefs = await SharedPreferences.getInstance();
-    final timestampKeys = prefs.getKeys().where((key) => 
-        key.endsWith('_timestamp'));
-    
+    final timestampKeys =
+        prefs.getKeys().where((key) => key.endsWith('_timestamp'));
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final eightHoursInMs = 8 * 60 * 60 * 1000;
-    
+
     int removedCount = 0;
-    
+
     for (var key in timestampKeys) {
       final timestamp = prefs.getInt(key);
       if (timestamp != null && (now - timestamp) > eightHoursInMs) {
-        final pedidoId = key.replaceFirst('confirmed_', '').replaceFirst('_timestamp', '');
+        final pedidoId =
+            key.replaceFirst('confirmed_', '').replaceFirst('_timestamp', '');
         await prefs.remove('confirmed_$pedidoId');
         await prefs.remove(key);
         removedCount++;
       }
     }
-    
+
     if (removedCount > 0) {
       developer.log("🧹 $removedCount confirmações expiradas foram removidas");
     }
@@ -259,7 +227,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
           int countAfter = pedidosMap[statusKey]?.length ?? 0;
           if (countBefore > countAfter) {
             pedidoRemovido = true;
-            developer.log('Pedido $orderId removido da lista de status $statusKey');
+            developer
+                .log('Pedido $orderId removido da lista de status $statusKey');
           }
         }
 
@@ -279,14 +248,17 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
               if (updatedPedido.events.where((e) => e.id == event.id).isEmpty) {
                 updatedPedido.events.add(event);
               } else {
-                int index = updatedPedido.events.indexWhere((e) => e.id == event.id);
+                int index =
+                    updatedPedido.events.indexWhere((e) => e.id == event.id);
                 if (index != -1) {
                   updatedPedido.events[index] = event;
                 }
               }
 
               await savePedidoToCache(updatedPedido);
-              await pollingRepository.acknowledgeEvents([{"id": event.id}]);
+              await pollingRepository.acknowledgeEvents([
+                {"id": event.id}
+              ]);
               developer.log('🔄 Pedido $orderId movido para CANCELADOS');
               _needsNotification = true;
             }
@@ -294,23 +266,33 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             developer.log('Erro ao obter detalhes do pedido cancelado: $e');
           }
         } else {
-          await pollingRepository.acknowledgeEvents([{"id": event.id}]);
+          await pollingRepository.acknowledgeEvents([
+            {"id": event.id}
+          ]);
         }
       } else {
         try {
           var updatedPedido = await getPedidoDetails(orderId);
           if (updatedPedido != null) {
-            developer.log('Detalhes do pedido $orderId atualizados com sucesso');
+            developer
+                .log('Detalhes do pedido $orderId atualizados com sucesso');
             updatedPedido.status = eventCode;
 
-            String status = mapApiStatusToCode(
-                updatedPedido.status.isEmpty ? eventCode : updatedPedido.status);
+            String status = mapApiStatusToCode(updatedPedido.status.isEmpty
+                ? eventCode
+                : updatedPedido.status);
 
             // Verificar se é um novo pedido (status PLC) e ainda não foi notificado
-            if (status == Consts.statusPlaced && !_notifiedPedidos.contains(orderId)) {
+            if (status == Consts.statusPlaced &&
+                !_notifiedPedidos.contains(orderId)) {
               _notifiedPedidos.add(orderId);
               await _playNotificationSound();
-              await _showNewOrderNotification(updatedPedido);
+              await dispararNotificacaoNativaPowerShell(
+                  head: 'Novo Pedido Recebido!',
+                  body: 'Pedido #${updatedPedido.displayId}',
+                  imagePath: path.absolute(
+                      'data/flutter_assets/assets/images/LOGO-KRONOS-food-icon-sync.png'),
+                  idPedido: updatedPedido.displayId);
             }
 
             // Verificação e envio de confirmação
@@ -319,9 +301,11 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
               if (!alreadyConfirmed) {
                 await kronosRepository.sendConfirmar(updatedPedido);
                 await markPedidoAsConfirmed(updatedPedido.id);
-                developer.log("✅ Pedido ${updatedPedido.id} confirmado e marcado no storage");
+                developer.log(
+                    "✅ Pedido ${updatedPedido.id} confirmado e marcado no storage");
               } else {
-                developer.log("ℹ️ Pedido ${updatedPedido.id} já foi confirmado anteriormente");
+                developer.log(
+                    "ℹ️ Pedido ${updatedPedido.id} já foi confirmado anteriormente");
               }
             }
 
@@ -334,25 +318,29 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             } else {
               pedidosMap[status] = [updatedPedido];
             }
-            
+
             if (updatedPedido.events.where((e) => e.id == event.id).isEmpty) {
               updatedPedido.events.add(event);
             } else {
-              int index = updatedPedido.events.indexWhere((e) => e.id == event.id);
+              int index =
+                  updatedPedido.events.indexWhere((e) => e.id == event.id);
               if (index != -1) {
                 updatedPedido.events[index] = event;
               }
             }
-            
+
             await savePedidoToCache(updatedPedido);
-            await pollingRepository.acknowledgeEvents([{"id": event.id}]);
+            await pollingRepository.acknowledgeEvents([
+              {"id": event.id}
+            ]);
 
             if (selectedPedido.value?.id == orderId) {
               selectedPedido.value = updatedPedido;
             }
             selectedPedido.notifyListeners();
 
-            developer.log('Pedido $orderId com status $status adicionado/atualizado no estado');
+            developer.log(
+                'Pedido $orderId com status $status adicionado/atualizado no estado');
             _needsNotification = true;
           }
         } catch (e) {
@@ -394,7 +382,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         if (pedido.status.isEmpty) {
           pedido.status = status;
           await savePedidoToCache(pedido);
-          developer.log("Atualizando status do pedido antigo ${pedido.id} para $status");
+          developer.log(
+              "Atualizando status do pedido antigo ${pedido.id} para $status");
         }
 
         for (var key in tempMap.keys) {
@@ -411,7 +400,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       }
 
       pedidosMap = tempMap;
-      developer.log("Carregamento concluído: ${pedidos.length} pedidos processados");
+      developer
+          .log("Carregamento concluído: ${pedidos.length} pedidos processados");
     } catch (e) {
       developer.log("Erro ao carregar pedidos salvos: $e");
     }
@@ -425,7 +415,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         upperStatus.contains('CANCELLED') ||
         upperStatus.contains('CANCELLATION') ||
         upperStatus.contains('CANCEL')) {
-      developer.log("🔴 Status de CANCELAMENTO detectado: $apiStatus -> ${Consts.statusCancelled}");
+      developer.log(
+          "🔴 Status de CANCELAMENTO detectado: $apiStatus -> ${Consts.statusCancelled}");
       return Consts.statusCancelled;
     } else if (upperStatus.contains('PLC') || upperStatus.contains('PLACED')) {
       return Consts.statusPlaced;
@@ -460,9 +451,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     try {
       _batchNotifications = true;
-      
+
       await cleanExpiredConfirmations();
-      
+
       var events = await pollingRepository.getPolling();
 
       developer.log("Eventos recebidos: ${events.length}");
@@ -513,7 +504,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     try {
       developer.log("Iniciando PedidosController...");
-      
+
       token = await _authRepository.getValidAccessToken() ?? "";
       if (token.isEmpty) {
         throw Exception("Token de acesso inválido ou expirado");
@@ -522,9 +513,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       merchantRepository = MerchantRepository(Consts.baseUrl, token);
       pollingRepository = PollingRepository();
       orderRepository = OrderRepository(Consts.baseUrl, token);
-      
+
       await loadSavedPedidos();
-      
+
       var lojas = await merchantRepository.getLojas();
 
       if (lojas.isEmpty) {
@@ -585,9 +576,9 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       isLoading = false;
       notifyListeners();
 
-      cleanupTimer = Timer.periodic(
-            const Duration(seconds: Consts.pollingIntervalSeconds),
-            (timer) async {
+      cleanupTimer =
+          Timer.periodic(const Duration(seconds: Consts.pollingIntervalSeconds),
+              (timer) async {
         await cleanExpiredConfirmations();
       });
 

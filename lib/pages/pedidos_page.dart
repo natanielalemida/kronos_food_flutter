@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import '../controllers/pedidos_controller.dart';
-// Import components
 import 'package:kronos_food/components/order_list_section.dart';
 import 'package:kronos_food/components/order_details.dart';
 
 class PedidosPage extends StatefulWidget {
-  const PedidosPage({super.key});
+  final String? orderIdSelected;
+
+  const PedidosPage({super.key, this.orderIdSelected});
 
   @override
   State<PedidosPage> createState() => _PedidosPageState();
@@ -108,7 +109,7 @@ class _PedidosPageState extends State<PedidosPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                     Image.asset(
+                      Image.asset(
                         'assets/images/LOGO-KRONOS-food-icon-sync.png',
                         height: 24,
                         errorBuilder: (context, error, stackTrace) {
@@ -171,6 +172,7 @@ class _PedidosPageState extends State<PedidosPage> {
                           ),
                         );
                         await controller.getPedidos();
+
                       },
                     ),
                   ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kronos_food/consts.dart';
@@ -5,6 +7,9 @@ import 'package:kronos_food/controllers/auth_controller.dart';
 import 'package:kronos_food/pages/config_page.dart';
 import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:win_toast/win_toast.dart';
+import 'package:path/path.dart' as path;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usuarioController = TextEditingController();
   final TextEditingController _supAnteriorController = TextEditingController();
   final TextEditingController _supAdicionarController = TextEditingController();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -35,6 +41,49 @@ class _LoginPageState extends State<LoginPage> {
     _carregarCredenciaisSalvas();
     _verificarConfiguracaoServidor();
     _supAdicionarController.addListener(_formatarValorMonetario);
+  }
+
+  Future<void> _playNotificationSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+    } catch (e) {
+      debugPrint('Erro ao tocar som: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Erro ao reproduzir som de notificação')),
+        );
+      }
+    }
+  }
+
+Future<void> shoTssw() async {
+  const xml = """
+<?xml version="1.0" encoding="UTF-8"?>
+<toast launch="action=viewConversation&amp;conversationId=9813">
+   <visual>
+      <binding template="ToastGeneric">
+         <text>Andrew sent you a picture</text>
+         <text>Check this out, Happy Canyon in Utah!</text>
+      </binding>
+   </visual>
+   <actions>
+      <input id="tbReply" type="text" placeHolderContent="Type a reply" />
+      <action content="Reply" activationType="background" arguments="action=reply&amp;conversationId=9813" />
+      <action content="Like" activationType="background" arguments="action=like&amp;conversationId=9813" />
+      <action content="View" activationType="background" arguments="action=viewImage&amp;imageUrl=https://picsum.photos/364/202?image=883" />
+   </actions>
+</toast>
+  """;
+
+  await WinToast.instance().showCustomToast(xml: xml, tag: 'tag1', group: 'group1');
+}
+
+
+
+  Future<void> _dispararNotificacao() async {
+    await _playNotificationSound();
+await shoTssw();
   }
 
   void _formatarValorMonetario() {
@@ -369,7 +418,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Image.asset(
                         'assets/images/LOGO-KRONOS-food-icon-sync.png',
-                        height: 230,
+                        height: 250,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             height: 250,
@@ -492,6 +541,25 @@ class _LoginPageState extends State<LoginPage> {
                                           fontWeight: FontWeight.bold)),
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _dispararNotificacao,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text('DISPARAR NOTIFICAÇÃO',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
                           if (!_serverConfigured) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -543,6 +611,7 @@ class _LoginPageState extends State<LoginPage> {
     _usuarioController.dispose();
     _supAnteriorController.dispose();
     _supAdicionarController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
