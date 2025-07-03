@@ -52,11 +52,12 @@ class _OrderDetailsState extends State<OrderDetails> {
   }
 
   Future<void> _loadVersion() async {
-  final info = await PackageInfo.fromPlatform();
-  setState(() {
-    versaoDoMeuSistema = '${info.version}+${info.buildNumber}'; // Ex: "1.0.0+1"
-  });
-}
+    final info = await PackageInfo.fromPlatform();
+    setState(() {
+      versaoDoMeuSistema =
+          '${info.version}+${info.buildNumber}'; // Ex: "1.0.0+1"
+    });
+  }
 
   String _formatPaymentMethod(String method) {
     switch (method.toUpperCase()) {
@@ -270,14 +271,13 @@ class _OrderDetailsState extends State<OrderDetails> {
                 }),
               ],
 
-
               // INFORMAÇÕES ADICIONAIS
-              if (pedido.customer.documentNumber.isNotEmpty && pedido.delivery.deliveredBy == "MERCHANT") ...[
+              if (pedido.customer.documentNumber.isNotEmpty &&
+                  pedido.delivery.deliveredBy == "MERCHANT") ...[
                 pw.SizedBox(height: 2),
                 pw.Divider(thickness: 0.8),
-         
-                     pw.Text('INFORMAÇÕES ADICIONAIS',
-                        style: const pw.TextStyle(fontSize: 8)),
+                pw.Text('INFORMAÇÕES ADICIONAIS',
+                    style: const pw.TextStyle(fontSize: 8)),
                 pw.Text('Incluir CPF na Nota Fiscal',
                     style: pw.TextStyle(font: font, fontSize: 8)),
                 pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
@@ -286,39 +286,39 @@ class _OrderDetailsState extends State<OrderDetails> {
 
               // ENTREGA
               if (pedido.delivery.deliveredBy == "MERCHANT") ...[
-pw.Divider(thickness: 0.8),
-              pw.Center(
-                  child: pw.Text('ENTREGA PEDIDO #${pedido.displayId}',
-                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
-              pw.Text(
-                'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-              pw.Text(
-                'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-                        pw.Text(
-                'Comp: ${pedido.delivery.deliveryAddress.complement}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-              if (pedido.delivery.deliveryAddress.reference != null)
-                pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
-                    style: pw.TextStyle(font: font, fontSize: 7)),
-              pw.Text(
-                'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-                        pw.Text(
-                'Cidade: ${pedido.delivery.deliveryAddress.city} - ${pedido.delivery.deliveryAddress.state}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-              pw.Text(
-                'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
+                pw.Divider(thickness: 0.8),
+                pw.Center(
+                    child: pw.Text('ENTREGA PEDIDO #${pedido.displayId}',
+                        style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text(
+                  'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
+                pw.Text(
+                  'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
+                pw.Text(
+                  'Comp: ${pedido.delivery.deliveryAddress.complement}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
+                if (pedido.delivery.deliveryAddress.reference != null)
+                  pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
+                      style: pw.TextStyle(font: font, fontSize: 7)),
+                pw.Text(
+                  'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
+                pw.Text(
+                  'Cidade: ${pedido.delivery.deliveryAddress.city} - ${pedido.delivery.deliveryAddress.state}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
+                pw.Text(
+                  'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                ),
               ],
-              
+
               pw.SizedBox(height: 6),
               pw.Text('Impresso por: KRONOS ERP $versaoDoMeuSistema',
                   style: pw.TextStyle(font: font, fontSize: 8)),
@@ -373,7 +373,7 @@ pw.Divider(thickness: 0.8),
     );
   }
 
-  Future<void> printReceipt() async {
+  Future<void> printReceiptWithDefault() async {
     await Printing.layoutPdf(
       onLayout: (_) => _generateReceipt(PdfPageFormat.roll80),
     );
@@ -421,10 +421,6 @@ pw.Divider(thickness: 0.8),
         updatedOrder.statusCode = Consts.statusCancelled;
       }
 
-      String newStatus = isCancelled
-          ? Consts.statusCancelled
-          : _mapStatusCode(updatedOrder.status);
-
       setState(() {
         _isUpdating = false;
       });
@@ -453,38 +449,12 @@ pw.Divider(thickness: 0.8),
     }
   }
 
-  String _mapStatusCode(String apiStatus) {
-    final upperStatus = apiStatus.toUpperCase();
 
-    if (upperStatus.contains('CAN') ||
-        upperStatus.contains('CANCELLED') ||
-        upperStatus.contains('CANCELLATION') ||
-        upperStatus.contains('CANCEL')) {
-      return Consts.statusCancelled;
-    } else if (upperStatus.contains('PLC') || upperStatus.contains('PLACED')) {
-      return Consts.statusPlaced;
-    } else if (upperStatus.contains('CFM') ||
-        upperStatus.contains('CONFIRMED') ||
-        upperStatus.contains('STP') ||
-        upperStatus.contains('PREPARATION')) {
-      return Consts.statusConfirmed;
-    } else if (upperStatus.contains('DSP') ||
-        upperStatus.contains('DISPATCHED') ||
-        upperStatus.contains('DISPATCH')) {
-      return Consts.statusDispatched;
-    } else if (upperStatus.contains('CON') ||
-        upperStatus.contains('CONCLUDED') ||
-        upperStatus.contains('COMPLETE')) {
-      return Consts.statusConcluded;
-    } else {
-      return Consts.statusPlaced;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     if (widget.controller.selectedPedido.value == null) {
-      return Center(
+      return const Center(
         child: Text("Nenhum pedido selecionado"),
       );
     }
@@ -520,7 +490,7 @@ pw.Divider(thickness: 0.8),
                           IconButton(
                             icon:
                                 const Icon(Icons.print, color: Colors.black54),
-                            onPressed: printReceipt,
+                            onPressed: printReceiptWithDefault,
                             tooltip: 'Imprimir',
                           ),
                         ],

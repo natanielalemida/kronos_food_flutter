@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:kronos_food/models/print_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
@@ -14,7 +15,6 @@ import 'package:kronos_food/repositories/order_repository.dart';
 import 'package:kronos_food/repositories/polling_repository.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path/path.dart' as path;
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:win_toast/win_toast.dart';
 
 enum MerchantStatus { ok, warning, closed, error }
@@ -48,6 +48,12 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   bool _batchNotifications = false;
   bool _needsNotification = false;
 
+  // Configurações automáticas
+  bool _autoAcceptEnabled = false;
+  bool _autoPrintEnabled = false;
+  final ValueNotifier<bool> autoAcceptNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> autoPrintNotifier = ValueNotifier<bool>(false);
+
   // Notificações e áudio
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Set<String> _notifiedPedidos = {};
@@ -68,38 +74,42 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  Future<void> cancelar(PedidoModel pedidoParaCancelar) async {
-  try {
-    bool pedidoAtualizado = false;
-
-    // Percorre todas as listas de status
-    pedidosMap.forEach((status, pedidos) {
-      // Encontra o pedido na lista atual
-      final pedidoIndex = pedidos.indexWhere((p) => p.id == pedidoParaCancelar.id);
-      
-      if (pedidoIndex != -1) {
-        // Atualiza APENAS o status do pedido existente
-        pedidos[pedidoIndex].status = 'CAN';
-        pedidos[pedidoIndex].statusCode = Consts.statusCancelled;
-        pedidoAtualizado = true;
-        
-        developer.log('🔄 Pedido ${pedidoParaCancelar.id} atualizado para CANCELADO na lista $status');
-      }
-    });
-
-    if (pedidoAtualizado) {
-      // Atualiza também o pedido no cache
-      await savePedidoToCache(pedidoParaCancelar);
-      notifyListeners();
-    } else {
-      developer.log('⚠️ Pedido ${pedidoParaCancelar.id} não encontrado nas listas');
-    }
-
-  } catch (e) {
-    developer.log('❌ Erro ao cancelar pedido: $e');
-    throw Exception('Falha na atualização do pedido');
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    _autoAcceptEnabled = prefs.getBool('auto_accept') ?? false;
+    _autoPrintEnabled = prefs.getBool('auto_print') ?? false;
+    autoAcceptNotifier.value = _autoAcceptEnabled;
+    autoPrintNotifier.value = _autoPrintEnabled;
   }
-}
+
+  Future<void> cancelar(PedidoModel pedidoParaCancelar) async {
+    try {
+      bool pedidoAtualizado = false;
+
+      pedidosMap.forEach((status, pedidos) {
+        final pedidoIndex =
+            pedidos.indexWhere((p) => p.id == pedidoParaCancelar.id);
+        if (pedidoIndex != -1) {
+          pedidos[pedidoIndex].status = 'CAN';
+          pedidos[pedidoIndex].statusCode = Consts.statusCancelled;
+          pedidoAtualizado = true;
+          developer.log(
+              '🔄 Pedido ${pedidoParaCancelar.id} atualizado para CANCELADO na lista $status');
+        }
+      });
+
+      if (pedidoAtualizado) {
+        await savePedidoToCache(pedidoParaCancelar);
+        notifyListeners();
+      } else {
+        developer.log(
+            '⚠️ Pedido ${pedidoParaCancelar.id} não encontrado nas listas');
+      }
+    } catch (e) {
+      developer.log('❌ Erro ao cancelar pedido: $e');
+      throw Exception('Falha na atualização do pedido');
+    }
+  }
 
   Future<void> dispararNotificacaoNativaPowerShell({
     required String head,
@@ -116,40 +126,11 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
          <text>$body</text>
       </binding>
    </visual>
-
 </toast>
 """;
 
-    //  <actions>
-    //     <action content="Confirmar" activationType="background" arguments="action=reply&amp;conversationId=$idPedido" />
-    //  </actions>
-
     await WinToast.instance()
         .showCustomToast(xml: xml, tag: 'tag1', group: 'group1');
-  }
-
-  Future<bool> isPedidoConfirmed(String pedidoId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final timestamp = prefs.getInt('confirmed_${pedidoId}_timestamp');
-    if (timestamp == null) return false;
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final eightHoursInMs = 8 * 60 * 60 * 1000;
-    if (now - timestamp > eightHoursInMs) {
-      await prefs.remove('confirmed_$pedidoId');
-      await prefs.remove('confirmed_${pedidoId}_timestamp');
-      developer.log("♻️ Confirmação expirada removida para pedido $pedidoId");
-      return false;
-    }
-    return prefs.getBool('confirmed_$pedidoId') ?? false;
-  }
-
-  Future<void> markPedidoAsConfirmed(String pedidoId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('confirmed_$pedidoId', true);
-    await prefs.setInt('confirmed_${pedidoId}_timestamp',
-        DateTime.now().millisecondsSinceEpoch);
-    developer.log("✅ Pedido $pedidoId marcado como confirmado");
   }
 
   Future<void> clearConfirmedPedidos() async {
@@ -171,7 +152,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         prefs.getKeys().where((key) => key.endsWith('_timestamp'));
 
     final now = DateTime.now().millisecondsSinceEpoch;
-    final eightHoursInMs = 8 * 60 * 60 * 1000;
+    const eightHoursInMs = 8 * 60 * 60 * 1000;
 
     int removedCount = 0;
 
@@ -305,6 +286,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         }
       } else {
         try {
+          await _loadPreferences();
           var updatedPedido = await getPedidoDetails(orderId);
           if (updatedPedido != null) {
             developer
@@ -314,6 +296,40 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             String status = mapApiStatusToCode(updatedPedido.status.isEmpty
                 ? eventCode
                 : updatedPedido.status);
+
+            if (status == 'CON') {
+              final sucess = await pollingRepository.acknowledgeEvents([
+                {"id": event.id}
+              ]);
+              if (sucess) {
+                await kronosRepository.sendConfirmar(updatedPedido);
+              }
+            }
+
+            // ACEITAÇÃO AUTOMÁTICA DE PEDIDOS
+            if (status == Consts.statusPlaced && _autoAcceptEnabled) {
+              try {
+                debugPrint(
+                    '⚠️ Tentando aceitar pedido $orderId automaticamente');
+                bool success = await orderRepository.acceptOrder(orderId);
+                if (success) {
+                  debugPrint(
+                      '✅ Pedido $orderId aceito automaticamente com sucesso');
+                  await kronosRepository.savePedidoToKronos(updatedPedido);
+                  updatedPedido.status = 'CFM';
+                  status = Consts.statusConfirmed;
+                  if (_autoPrintEnabled) {
+                    await printReceipt(updatedPedido);
+                  }
+                } else {
+                  debugPrint(
+                      '❌ Falha ao aceitar pedido $orderId automaticamente');
+                }
+              } catch (e) {
+                debugPrint(
+                    '❌ Erro ao aceitar pedido $orderId automaticamente: $e');
+              }
+            }
 
             // Verificar se é um novo pedido (status PLC) e ainda não foi notificado
             if (status == Consts.statusPlaced &&
@@ -326,20 +342,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
                   imagePath: path.absolute(
                       'data/flutter_assets/assets/images/LOGO-KRONOS-food-icon-sync.png'),
                   idPedido: updatedPedido.displayId);
-            }
-
-            // Verificação e envio de confirmação
-            if (status == 'CON') {
-              bool alreadyConfirmed = await isPedidoConfirmed(updatedPedido.id);
-              if (!alreadyConfirmed) {
-                await kronosRepository.sendConfirmar(updatedPedido);
-                await markPedidoAsConfirmed(updatedPedido.id);
-                developer.log(
-                    "✅ Pedido ${updatedPedido.id} confirmado e marcado no storage");
-              } else {
-                developer.log(
-                    "ℹ️ Pedido ${updatedPedido.id} já foi confirmado anteriormente");
-              }
             }
 
             for (var statusKey in pedidosMap.keys.toList()) {
@@ -501,6 +503,18 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       }
 
       _logAllOrders();
+
+      final displayId = selectedPedido.value?.displayId;
+
+      if (displayId != null) {
+        pedidosMap.forEach((key, value) {
+          for (var pedido in value) {
+            if (pedido.displayId == displayId) {
+              selectedPedido.value = pedido;
+            }
+          }
+        });
+      }
     } finally {
       _batchNotifications = false;
       if (hasChanges || _needsNotification) {
@@ -639,6 +653,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     timerMake?.cancel();
     cleanupTimer?.cancel();
     _audioPlayer.dispose();
+    autoAcceptNotifier.dispose();
+    autoPrintNotifier.dispose();
     super.dispose();
   }
 

@@ -38,7 +38,6 @@ class _ConfigPageState extends State<ConfigPage> {
     });
   }
 
-  // Salva configurações no SharedPreferences
   Future<void> _salvarConfiguracoes() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -55,6 +54,8 @@ class _ConfigPageState extends State<ConfigPage> {
             const SnackBar(
               content: Text('Configurações salvas com sucesso!'),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(20),
             ),
           );
         }
@@ -64,6 +65,8 @@ class _ConfigPageState extends State<ConfigPage> {
             SnackBar(
               content: Text('Erro ao salvar configurações: ${e.toString()}'),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(20),
             ),
           );
         }
@@ -78,272 +81,332 @@ class _ConfigPageState extends State<ConfigPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Configurações'),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Card para configurações do servidor
-                    Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.settings,
-                                  color: Consts.primaryColor,
-                                  size: 28,
-                                ),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Configurações do Servidor',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Estas configurações são necessárias para conexão com o servidor.',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Campo para o endereço do servidor (aceitando formatos mais flexíveis)
-                            TextFormField(
-                              controller: _serverIpController,
-                              decoration: InputDecoration(
-                                labelText: 'Endereço do Servidor',
-                                hintText:
-                                    'Ex: http://localhost:5000/arc ou 192.168.1.100:5000',
-                                prefixIcon: const Icon(Icons.dns),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, insira o endereço do servidor';
-                                }
-
-                                // Aceita qualquer formato que contenha "localhost" ou um padrão válido de URL/IP
-                                final lowercaseValue = value.toLowerCase();
-
-                                // Aceita qualquer endereço que contenha "localhost"
-                                if (lowercaseValue.contains('localhost')) {
-                                  return null; // localhost é válido
-                                }
-
-                                // Aceita URLs com protocolo http/https
-                                if (lowercaseValue.startsWith('http://') ||
-                                    lowercaseValue.startsWith('https://')) {
-                                  return null; // URLs com protocolo são válidas
-                                }
-
-                                // Aceita IPs (verificação básica: contém ponto)
-                                if (lowercaseValue.contains('.')) {
-                                  return null; // Provavelmente um endereço IP válido
-                                }
-
-                                return 'Por favor, insira um endereço de servidor válido';
-                              },
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Campo para o código da empresa (apenas números)
-                            TextFormField(
-                              controller: _companyCodeController,
-                              decoration: InputDecoration(
-                                labelText: 'Código da Empresa',
-                                hintText: 'Ex: 12345',
-                                prefixIcon: const Icon(Icons.business),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, insira o código da empresa';
-                                }
-                                return null;
-                              },
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            TextFormField(
-                              controller: _terminalController,
-                              decoration: InputDecoration(
-                                labelText: 'Terminal',
-                                hintText: 'Ex: 12345',
-                                prefixIcon: const Icon(Icons.business),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, insira o do terminal';
-                                }
-                                return null;
-                              },
+      backgroundColor: Colors.grey[50],
+      body: Column(
+        children: [
+          // Header moderno com botão voltar
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: Consts.primaryColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  // Botão Voltar
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Configurações do Sistema',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.help_outline, color: Colors.white),
+                    onPressed: () {
+                      // Ação para ajuda
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Conteúdo principal
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Card principal
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Botões de ação
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: [
-                        // Botão para salvar configurações
-                        SizedBox(
-                          height: 50,
-                          width: 220,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(
-                              Icons.save,
-                              color: Colors.white,
-                            ),
-                            label: _isSaving
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.0,
-                                    ),
-                                  )
-                                : const Text(
-                                    'SALVAR',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Título e descrição
+                                const Text(
+                                  'Configurações de Conexão',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
-                            onPressed: _isSaving ? null : _salvarConfiguracoes,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Consts.primaryColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                          ),
-                        ),
-
-                        // Botão para limpar configurações
-                        SizedBox(
-                          height: 50,
-                          width: 220,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.delete_outline),
-                            label: const Text(
-                              'LIMPAR',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Limpar configurações'),
-                                  content: const Text(
-                                      'Tem certeza que deseja limpar todas as configurações?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text('CANCELAR'),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Configure os parâmetros de conexão com o servidor do sistema',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                
+                                // Divisor visual
+                                Divider(color: Colors.grey[200], height: 1),
+                                const SizedBox(height: 32),
+                                
+                                // Grupo de campos
+                                Column(
+                                  children: [
+                                    // Campo do servidor
+                                    _buildFormField(
+                                      icon: Icons.cloud,
+                                      label: 'Endereço do Servidor',
+                                      hint: 'Ex: http://servidor:5000 ou 192.168.1.100',
+                                      controller: _serverIpController,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Por favor, insira o endereço do servidor';
+                                        }
+                                        final lowercaseValue = value.toLowerCase();
+                                        if (lowercaseValue.contains('localhost')) {
+                                          return null;
+                                        }
+                                        if (lowercaseValue.startsWith('http://') ||
+                                            lowercaseValue.startsWith('https://')) {
+                                          return null;
+                                        }
+                                        if (lowercaseValue.contains('.')) {
+                                          return null;
+                                        }
+                                        return 'Por favor, insira um endereço válido';
+                                      },
                                     ),
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text('LIMPAR'),
+                                    
+                                    const SizedBox(height: 24),
+                                    
+                                    // Linha com dois campos
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _buildFormField(
+                                            icon: Icons.business,
+                                            label: 'Código da Empresa',
+                                            hint: 'Ex: 12345',
+                                            controller: _companyCodeController,
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.digitsOnly,
+                                            ],
+                                            validator: (value) {
+                                              if (value == null || value.isEmpty) {
+                                                return 'Por favor, insira o código';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 24),
+                                        Expanded(
+                                          child: _buildFormField(
+                                            icon: Icons.point_of_sale,
+                                            label: 'Terminal',
+                                            hint: 'Ex: 1',
+                                            controller: _terminalController,
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.digitsOnly,
+                                            ],
+                                            validator: (value) {
+                                              if (value == null || value.isEmpty) {
+                                                return 'Por favor, insira o terminal';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              );
-
-                              if (confirmed == true && mounted) {
-                                await preferencesService.clearCompanyCode();
-                                await preferencesService.clearServerIp();
-                                 await preferencesService.clearTerminalCode();
-
-                                setState(() {
-                                  _companyCodeController.clear();
-                                  _serverIpController.clear();
-                                  _terminalController.clear();
-                                });
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Configurações limpas com sucesso!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Consts.primaryColor),
-                              foregroundColor: Consts.primaryColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                
+                                const SizedBox(height: 40),
+                                
+                                // Botões de ação - agora em linha e alinhados à direita
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Botão Voltar (secundário)
+                                    
+                                    const SizedBox(width: 16),
+                                    
+                                    // Botão Limpar
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        side: BorderSide(color: Colors.grey[300]!),
+                                        foregroundColor: Colors.grey[800],
+                                      ),
+                                      onPressed: () async {
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Limpar configurações'),
+                                            content: const Text('Tem certeza que deseja limpar todas as configurações?'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, false),
+                                                child: const Text('Cancelar'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, true),
+                                                child: const Text('Limpar', style: TextStyle(color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        
+                                        if (confirmed == true && mounted) {
+                                          await preferencesService.clearCompanyCode();
+                                          await preferencesService.clearServerIp();
+                                          await preferencesService.clearTerminalCode();
+                                          
+                                          setState(() {
+                                            _companyCodeController.clear();
+                                            _serverIpController.clear();
+                                            _terminalController.clear();
+                                          });
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Configurações limpas com sucesso!'),
+                                              backgroundColor: Colors.green,
+                                              behavior: SnackBarBehavior.floating,
+                                              margin: EdgeInsets.all(20),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('LIMPAR'),
+                                    ),
+                                    
+                                    const SizedBox(width: 16),
+                                    
+                                    // Botão Salvar (primário)
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        backgroundColor: Consts.primaryColor,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: _isSaving ? null : _salvarConfiguracoes,
+                                      child: _isSaving
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2.0,
+                                              ),
+                                            )
+                                          : const Text('SALVAR'),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      
+                      // Rodapé informativo
+                      const SizedBox(height: 32),
+                      Text(
+                        'Kronos Food • Versão 1.0.0',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFormField({
+    required IconData icon,
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, color: Colors.grey[500]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
     );
   }
 
@@ -351,6 +414,7 @@ class _ConfigPageState extends State<ConfigPage> {
   void dispose() {
     _companyCodeController.dispose();
     _serverIpController.dispose();
+    _terminalController.dispose();
     super.dispose();
   }
 }

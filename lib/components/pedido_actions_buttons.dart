@@ -1,10 +1,12 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:kronos_food/models/event_model.dart';
+import 'package:kronos_food/models/print_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
 import 'package:kronos_food/repositories/kronos_repository.dart';
 import 'package:kronos_food/service/order_actions_service.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PedidoActionsButtons extends StatefulWidget {
   final PedidosController controller;
@@ -45,7 +47,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       Future<bool> Function() action, String actionName, int? Codigo) async {
     if (_isLoading) return;
 
-    developer.log("action: ${actionName}");
+    developer.log("action: $actionName");
 
     setState(() {
       _isLoading = true;
@@ -429,7 +431,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                         });
                       }
 
-                      widget.controller.cancelar(widget.controller.selectedPedido.value!);
+                      widget.controller
+                          .cancelar(widget.controller.selectedPedido.value!);
 
                       debugPrint('✅ Notificação: $statusBefore');
 
@@ -441,11 +444,13 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                       debugPrint('passou');
 
                       var service = KronosRepository();
-                      service.cancelarPedido(
-                          widget.controller.selectedPedido.value,
-                          reason['description']).then((value) {
-                            return true;
-                          });
+                      service
+                          .cancelarPedido(
+                              widget.controller.selectedPedido.value,
+                              reason['description'])
+                          .then((value) {
+                        return true;
+                      });
                       return true;
                     } else {
                       return false;
@@ -475,7 +480,18 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       if (!result) return;
     }
 
-        debugPrint('✅ Notificação ativada: ${statusCode}');
+    // if (statusCode == 'CFM') {
+    //   await instace.addPedidoToCache(pedido);
+    // }
+
+    final prefs = await SharedPreferences.getInstance();
+    final autoPrintEnabled = prefs.getBool('auto_print') ?? false;
+
+    if (statusCode == 'CFM' && autoPrintEnabled) {
+      await printReceipt(widget.controller.selectedPedido.value);
+    }
+
+    debugPrint('✅ Notificação ativada: ${statusCode}');
 
     final hasEvent = pedido.events.any((e) => e.code == statusCode);
 

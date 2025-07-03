@@ -233,65 +233,36 @@ class OrderListSection extends StatelessWidget {
                         );
                       })
                     ] else ...[
-                      OrderGroup(
-                        orderTimming: orderTimming.value,
+                      // Sempre mostra todos os grupos, mesmo vazios
+                      _buildOrderGroup(
                         title: 'Pendentes',
-                        orders: pedidosMap[Consts.statusPlaced] ?? [],
-                        color: Colors.orange,
                         statusCode: Consts.statusPlaced,
-                        isExpanded: isExpanded[Consts.statusPlaced] ?? true,
-                        onExpansionChanged: (value) =>
-                            onExpansionChanged(value, Consts.statusPlaced),
-                        onOrderSelected: onOrderSelected,
-                        selectedOrderId: selectedOrderId,
+                        color: Colors.orange,
+                        icon: Icons.access_time,
                       ),
-                      OrderGroup(
-                        orderTimming: orderTimming.value,
+                      _buildOrderGroup(
                         title: 'Confirmados',
-                        orders: pedidosMap[Consts.statusConfirmed] ?? [],
-                        color: Colors.blue,
                         statusCode: Consts.statusConfirmed,
-                        isExpanded: isExpanded[Consts.statusConfirmed] ?? true,
-                        onExpansionChanged: (value) =>
-                            onExpansionChanged(value, Consts.statusConfirmed),
-                        onOrderSelected: onOrderSelected,
-                        selectedOrderId: selectedOrderId,
+                        color: Colors.blue,
+                        icon: Icons.check_circle_outline,
                       ),
-                      OrderGroup(
-                        orderTimming: orderTimming.value,
+                      _buildOrderGroup(
                         title: 'Despachados',
-                        orders: pedidosMap[Consts.statusDispatched] ?? [],
-                        color: Colors.purple,
                         statusCode: Consts.statusDispatched,
-                        isExpanded: isExpanded[Consts.statusDispatched] ?? true,
-                        onExpansionChanged: (value) =>
-                            onExpansionChanged(value, Consts.statusDispatched),
-                        onOrderSelected: onOrderSelected,
-                        selectedOrderId: selectedOrderId,
+                        color: Colors.purple,
+                        icon: Icons.local_shipping,
                       ),
-                      OrderGroup(
-                        orderTimming: orderTimming.value,
+                      _buildOrderGroup(
                         title: 'Concluídos',
-                        orders: pedidosMap[Consts.statusConcluded] ?? [],
-                        color: Colors.green,
                         statusCode: Consts.statusConcluded,
-                        isExpanded: isExpanded[Consts.statusConcluded] ?? true,
-                        onExpansionChanged: (value) =>
-                            onExpansionChanged(value, Consts.statusConcluded),
-                        onOrderSelected: onOrderSelected,
-                        selectedOrderId: selectedOrderId,
+                        color: Colors.green,
+                        icon: Icons.done_all,
                       ),
-                      OrderGroup(
-                        orderTimming: orderTimming.value,
+                      _buildOrderGroup(
                         title: 'Cancelados',
-                        orders: pedidosMap[Consts.statusCancelled] ?? [],
-                        color: Colors.red,
                         statusCode: Consts.statusCancelled,
-                        isExpanded: isExpanded[Consts.statusCancelled] ?? true,
-                        onExpansionChanged: (value) =>
-                            onExpansionChanged(value, Consts.statusCancelled),
-                        onOrderSelected: onOrderSelected,
-                        selectedOrderId: selectedOrderId,
+                        color: Colors.red,
+                        icon: Icons.cancel,
                       ),
                     ]
                   ],
@@ -304,13 +275,25 @@ class OrderListSection extends StatelessWidget {
     );
   }
 
-  // Filtro por tipo de agendamento
-  bool _filterByTiming(PedidoModel pedido) {
-    if (orderTimming.value == OrderTimming.immediate) {
-      return pedido.orderTiming != "SCHEDULED";
-    } else {
-      return pedido.orderTiming == "SCHEDULED";
-    }
+  // Método auxiliar para construir os grupos de pedidos
+  Widget _buildOrderGroup({
+    required String title,
+    required String statusCode,
+    required Color color,
+    required IconData icon,
+  }) {
+    return OrderGroup(
+      orderTimming: orderTimming.value,
+      title: title,
+      orders: pedidosMap[statusCode] ?? [],
+      color: color,
+      statusCode: statusCode,
+      isExpanded: isExpanded[statusCode] ?? true,
+      onExpansionChanged: (value) => onExpansionChanged(value, statusCode),
+      onOrderSelected: onOrderSelected,
+      selectedOrderId: selectedOrderId,
+      icon: icon,
+    );
   }
 
   // Widget para os botões de filtro
@@ -365,50 +348,6 @@ class OrderListSection extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Widget para os cabeçalhos de status
-  Widget _buildStatusHeader({
-    required String title,
-    required IconData icon,
-    required int count,
-    required Color color,
-    required String statusCode,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withOpacity(0.5)),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

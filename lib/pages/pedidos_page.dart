@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import '../controllers/pedidos_controller.dart';
@@ -16,7 +17,6 @@ class PedidosPage extends StatefulWidget {
 
 class _PedidosPageState extends State<PedidosPage> {
   late PedidosController controller;
-  // Controla o estado de expansão de cada seção
   final Map<String, bool> _isExpanded = {
     Consts.statusPlaced: true,
     Consts.statusConfirmed: true,
@@ -24,13 +24,34 @@ class _PedidosPageState extends State<PedidosPage> {
     Consts.statusConcluded: true,
     Consts.statusCancelled: true,
   };
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  // Variáveis para os switches
+  bool _autoAccept = false;
+  bool _autoPrint = false;
 
   @override
   void initState() {
     controller = PedidosController();
     controller.init(context);
     controller.addListener(() => setState(() {}));
+    _loadPreferences();
     super.initState();
+  }
+
+  // Carrega as preferências salvas
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _autoAccept = prefs.getBool('auto_accept') ?? false;
+      _autoPrint = prefs.getBool('auto_print') ?? false;
+    });
+  }
+
+  // Salva o estado do switch
+  Future<void> _savePreference(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
   }
 
   @override
@@ -52,8 +73,7 @@ class _PedidosPageState extends State<PedidosPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 64),
+                    const Icon(Icons.error_outline, color: Colors.red, size: 64),
                     const SizedBox(height: 24),
                     Text(
                       "Ocorreu um erro",
@@ -98,6 +118,7 @@ class _PedidosPageState extends State<PedidosPage> {
             );
           } else {
             return Scaffold(
+              key: _scaffoldKey,
               appBar: AppBar(
                 title: Container(
                   padding:
@@ -158,6 +179,10 @@ class _PedidosPageState extends State<PedidosPage> {
                 backgroundColor: Consts.primaryColor,
                 foregroundColor: Colors.white,
                 elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                ),
                 actions: [
                   Container(
                     margin: const EdgeInsets.only(right: 8),
@@ -172,11 +197,53 @@ class _PedidosPageState extends State<PedidosPage> {
                           ),
                         );
                         await controller.getPedidos();
-
                       },
                     ),
                   ),
                 ],
+              ),
+              drawer: Drawer(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    const DrawerHeader(
+                      decoration: BoxDecoration(
+                        color: Consts.primaryColor,
+                      ),
+                      child: Text(
+                        'Configurações',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Aceitar automático'),
+                      value: _autoAccept,
+                      onChanged: (bool value) {
+                        setState(() {
+                          _autoAccept = value;
+                        });
+                        _savePreference('auto_accept', value);
+                      },
+                      secondary: const Icon(Icons.check_circle_outline),
+                      activeColor: Consts.primaryColor,
+                    ),
+                    SwitchListTile(
+                      title: const Text('Imprimir automático'),
+                      value: _autoPrint,
+                      onChanged: (bool value) {
+                        setState(() {
+                          _autoPrint = value;
+                        });
+                        _savePreference('auto_print', value);
+                      },
+                      secondary: const Icon(Icons.print_outlined),
+                      activeColor: Consts.primaryColor,
+                    ),
+                  ],
+                ),
               ),
               body: ValueListenableBuilder<PedidoModel?>(
                   valueListenable: controller.selectedPedido,
@@ -288,22 +355,5 @@ class _PedidosPageState extends State<PedidosPage> {
             );
           }
         });
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case Consts.statusPlaced:
-        return "Pendente";
-      case Consts.statusConfirmed:
-        return "Confirmado";
-      case Consts.statusDispatched:
-        return "Despachado";
-      case Consts.statusConcluded:
-        return "Concluído";
-      case Consts.statusCancelled:
-        return "Cancelado";
-      default:
-        return status;
-    }
   }
 }
