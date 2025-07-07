@@ -460,7 +460,7 @@ class AnimatedProgressIndicator extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Consts.primaryColor.withValues(alpha: .1),
+                      Consts.primaryColor.withOpacity(.1),
                       Consts.primaryColor
                     ],
                     begin: Alignment.centerLeft,

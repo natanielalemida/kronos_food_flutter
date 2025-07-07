@@ -39,52 +39,34 @@ class _LoginPageState extends State<LoginPage> {
 
   void _formatarValorMonetario() {
     final text = _supAdicionarController.text;
-    final selection = _supAdicionarController.selection;
-
     if (text.isEmpty) {
       _supAdicionarController.text = "0,00";
       _supAdicionarController.selection = TextSelection.collapsed(offset: 4);
       return;
     }
 
-    // Remove todos os caracteres não numéricos
     String cleanedText = text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    // Se não tiver nada, retorna 0,00
     if (cleanedText.isEmpty) {
       _supAdicionarController.text = "0,00";
       _supAdicionarController.selection = TextSelection.collapsed(offset: 4);
       return;
     }
 
-    // Garante que temos pelo menos 3 dígitos (para os centavos)
     cleanedText = cleanedText.padLeft(3, '0');
-
-    // Pega os últimos 2 dígitos para os centavos
     String centavos = cleanedText.substring(cleanedText.length - 2);
-
-    // Pega o restante para os reais
     String reais = cleanedText.substring(0, cleanedText.length - 2);
-
-    // Remove zeros à esquerda desnecessários
     reais = reais.replaceAll(RegExp(r'^0+'), '');
     if (reais.isEmpty) reais = '0';
 
-    // Formata os reais com separadores de milhar
     String reaisFormatados = '';
-    int count = 0;
-    for (int i = reais.length - 1; i >= 0; i--) {
+    for (int i = reais.length - 1, count = 0; i >= 0; i--, count++) {
       reaisFormatados = reais[i] + reaisFormatados;
-      count++;
-      if (count % 3 == 0 && i != 0) {
+      if (count % 3 == 2 && i != 0) {
         reaisFormatados = '.$reaisFormatados';
       }
     }
 
-    // Combina o valor formatado
     String valorFormatado = '$reaisFormatados,$centavos';
-
-    // Atualiza o controller mantendo a posição do cursor
     _supAdicionarController.value = _supAdicionarController.value.copyWith(
       text: valorFormatado,
       selection: TextSelection.collapsed(offset: valorFormatado.length),
@@ -101,7 +83,6 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _carregarCaixa() async {
     final caixa = await preferencesService.getCodCaixaDecoded();
-
     if (caixa != null) {
       setState(() {
         _supAnteriorController.text =
@@ -112,11 +93,9 @@ class _LoginPageState extends State<LoginPage> {
 
   String _formatarParaExibicao(dynamic valor) {
     if (valor == null) return "0,00";
-
     double valorNumerico =
         valor is String ? double.tryParse(valor) ?? 0.0 : valor.toDouble();
     String valorString = valorNumerico.toStringAsFixed(2).replaceAll('.', ',');
-
     List<String> partes = valorString.split(',');
     String parteInteira = partes[0];
     String parteDecimal = partes.length > 1 ? partes[1] : '00';
@@ -180,32 +159,12 @@ class _LoginPageState extends State<LoginPage> {
             style: const TextStyle(fontSize: 14),
             enabled: enabled,
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-            ],
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))],
             decoration: InputDecoration(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Colors.grey[300]!,
-                  width: 1,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Colors.grey[300]!,
-                  width: 1,
-                ),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Colors.grey[300]!,
-                  width: 1,
-                ),
               ),
               filled: !enabled,
               fillColor: Colors.grey[50],
@@ -222,25 +181,12 @@ class _LoginPageState extends State<LoginPage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
+          insetPadding: const EdgeInsets.all(24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
           child: Container(
-            width: 600,
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,91 +203,46 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close, color: Colors.grey[600]),
+                      icon: const Icon(Icons.close),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Primeira linha - Campos fixos
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
                   children: [
-                    _buildFormField('Data e Hora', _dataHoraController,
-                        width: 200),
-                    const SizedBox(width: 16),
-                    _buildFormField('Terminal', _terminalController,
-                        enabled: false, width: 150),
-                    const SizedBox(width: 16),
-                    _buildFormField('Usuário', _usuarioController,
-                        enabled: false, width: 150),
+                    _buildFormField('Data e Hora', _dataHoraController, width: 200),
+                    _buildFormField('Terminal', _terminalController, enabled: false, width: 150),
+                    _buildFormField('Usuário', _usuarioController, enabled: false, width: 150),
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Segunda linha - Campos editáveis
-                Row(
-                  children: [
-                    if (_supAnteriorController.text.isNotEmpty &&
-                        _supAnteriorController.text != "0,00") ...[
-                      Expanded(
-                        child: _buildFormField(
-                          'Saldo Anterior',
-                          _supAnteriorController,
-                          enabled: false,
-                        ),
-                      ),
-                    ] else ...[
-                      Expanded(
-                        child: _buildFormField(
-                          'Saldo a Adicionar',
-                          _supAdicionarController,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                if (_supAnteriorController.text.isNotEmpty && _supAnteriorController.text != "0,00")
+                  _buildFormField('Saldo Anterior', _supAnteriorController, enabled: false)
+                else
+                  _buildFormField('Saldo a Adicionar', _supAdicionarController),
                 const SizedBox(height: 32),
-
-                // Botões de ação
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                      ),
-                      child: Text(
-                        'Cancelar',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
+                      child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton(
-                      onPressed: () {
-                        _abrirCaixa();
-                      },
+                      onPressed: _abrirCaixa,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Consts.primaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Confirmar Registro',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      child: const Text('Confirmar Registro'),
                     ),
                   ],
                 ),
@@ -355,12 +256,8 @@ class _LoginPageState extends State<LoginPage> {
 
   void _login() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      await _salvarCredenciais(
-          _usernameController.text, _passwordController.text);
+      setState(() => _isLoading = true);
+      await _salvarCredenciais(_usernameController.text, _passwordController.text);
 
       try {
         final loginSuccessful = await _authController.loginUser(
@@ -368,7 +265,6 @@ class _LoginPageState extends State<LoginPage> {
 
         if (loginSuccessful == true && mounted) {
           var result = await _authController.getCodCaixa(context);
-
           if (result == false) {
             _preencherDataHoraAtual();
             _carregarTerminal();
@@ -378,52 +274,34 @@ class _LoginPageState extends State<LoginPage> {
           }
 
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const PedidosPage(),
-            ),
+            MaterialPageRoute(builder: (context) => const PedidosPage()),
           );
         } else if (mounted) {
           final error = _authController.haveError.value
               ? _authController.errorMsg.value
               : 'Falha na autenticação. Verifique suas credenciais.';
-
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro ao efetuar login: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Erro ao efetuar login: ${e.toString()}'), backgroundColor: Colors.red),
           );
         }
       } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
 
   void _abrirCaixa() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     final caixa = await preferencesService.getCodCaixaDecoded();
 
     if (caixa == null || caixa['Codigo'] == null) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       showDialog(
         context: context,
         builder: (_) => const AlertDialog(
@@ -438,9 +316,7 @@ class _LoginPageState extends State<LoginPage> {
         ? _supAnteriorController.text
         : _supAdicionarController.text;
 
-    // Corrige possível vírgula e ponto errado
     var valor = rawValor.replaceAll('.', '').replaceAll(',', '.');
-
     var result = await _authController.abrirCaixa(
       context,
       caixa['Codigo'],
@@ -448,16 +324,12 @@ class _LoginPageState extends State<LoginPage> {
       valor,
     );
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (result == true) {
       Navigator.of(context).pop();
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const PedidosPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const PedidosPage()),
       );
     } else {
       showDialog(
@@ -473,17 +345,17 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  Column(
+                    children: [
                   Column(
                     children: [
                       Image.network(
@@ -505,7 +377,7 @@ class _LoginPageState extends State<LoginPage> {
                           );
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 5),
                       const Text(
                         "Gerenciador de Pedidos",
                         style: TextStyle(
@@ -524,143 +396,122 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 40),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
+
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: _usernameController,
-                              decoration: InputDecoration(
-                                prefixIcon: Icon(
-                                  Icons.person_outline,
-                                  color: Colors.grey.shade700,
-                                ),
-                                labelText: 'Usuário',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, digite seu usuário';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                prefixIcon: Icon(
-                                  Icons.lock_outline,
-                                  color: Colors.grey.shade700,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                                labelText: 'Senha',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor, digite sua senha';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 55,
-                              child: ElevatedButton(
-                                onPressed: (!_serverConfigured || _isLoading)
-                                    ? null
-                                    : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Consts.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 3,
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2.0,
-                                        ),
-                                      )
-                                    : const Text(
-                                        'ENTRAR',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            if (!_serverConfigured) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                'Configure o IP do servidor nas configurações antes de fazer login',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: 'Usuário',
+                              prefixIcon: const Icon(Icons.person_outline),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                            ),
+                            validator: (value) =>
+                                value?.isEmpty ?? true ? 'Digite seu usuário' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Senha',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () =>
+                                    setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                            ),
+                            validator: (value) =>
+                                value?.isEmpty ?? true ? 'Digite sua senha' : null,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: (!_serverConfigured || _isLoading)
+                                  ? null
+                                  : _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Consts.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.0,
+                                      ),
+                                    )
+                                  : const Text('ENTRAR',
+                                      style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          if (!_serverConfigured) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Configure o IP do servidor nas configurações',
+                              style: TextStyle(
+                                color: Colors.red[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  TextButton.icon(
+                  TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const ConfigPage(),
-                        ),
-                      ).then((_) {
-                        _verificarConfiguracaoServidor();
-                      });
+                        MaterialPageRoute(builder: (context) => const ConfigPage()),
+                      ).then((_) => _verificarConfiguracaoServidor());
                     },
-                    icon: Icon(
-                      Icons.settings,
-                      color: Colors.grey[700],
-                    ),
-                    label: Text(
-                      'Configurações',
-                      style: TextStyle(
-                        color: Colors.grey[800],
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.settings, size: 18),
+                        SizedBox(width: 8),
+                        Text('Configurações'),
+                      ],
                     ),
                   ),
                 ],
