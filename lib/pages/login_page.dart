@@ -356,10 +356,8 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   Column(
                     children: [
-                  Column(
-                    children: [
-                      Image.network(
-                        'https://drive.google.com/u/0/drive-viewer/AKGpihbvfwv6iMq69uuB-LX_p6OszAh8TNoAhQUIIJpYzVW0nFmjBJ6v_LKvTx10Jhziwnzb28epk7eBxScMMqkqOCRi7A5L4L0TkX4=s1600-rw-v1',
+                      Image.asset(
+                        'assets/images/LOGO-KRONOS-food-icon-sync.png',
                         height: 250,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
@@ -377,26 +375,23 @@ class _LoginPageState extends State<LoginPage> {
                           );
                         },
                       ),
-                      const SizedBox(height: 5),
-                      const Text(
+                      const SizedBox(height: 24),
+                      Text(
                         "Gerenciador de Pedidos",
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Consts.primaryColor,
+                          color: Colors.grey[800],
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "Faça login para continuar",
                         style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[700],
+                          fontSize: 14,
+                          color: Colors.grey[600],
                         ),
                       ),
-                    ],
-                  ),
-
                     ],
                   ),
                   const SizedBox(height: 32),
