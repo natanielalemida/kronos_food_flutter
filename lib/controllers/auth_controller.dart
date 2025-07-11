@@ -64,6 +64,7 @@ class AuthController extends ChangeNotifier {
           await authRepository.saveConfig({
             'accessToken': resultado['AccessToken'],
             'refreshToken': resultado['RefreshToken'],
+            'dataHoraToken': resultado['DataHoraToken']
           });
 
           // Atualizar o mainController com os novos tokens

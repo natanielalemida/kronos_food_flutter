@@ -22,7 +22,7 @@ class AuthRepository {
     await _preferencesService.saveKronosToken(token);
   }
 
-    Future<void> saveCodeUser(String code) async {
+  Future<void> saveCodeUser(String code) async {
     await _preferencesService.saveCodeUser(code);
   }
 
@@ -53,7 +53,15 @@ class AuthRepository {
           await authenticate(true, "", "", refreshToken);
 
       // Salva o novo token nos preferences
-      await saveConfig(tokenData);
+
+      await _saveTokensToBackend(
+          tokenData['accessToken'], tokenData['refreshToken']);
+
+      await saveConfig({
+        'accessToken': tokenData['accessToken'],
+        'refreshToken': tokenData['refreshToken'],
+        'dataHoraToken': DateTime.now().toIso8601String()
+      });
 
       // Atualiza o mainController com os novos tokens
       _mainController.setConfig(tokenData);
@@ -62,6 +70,40 @@ class AuthRepository {
     } catch (e) {
       print("Erro ao atualizar token: $e");
       return null;
+    }
+  }
+
+  Future<bool> _saveTokensToBackend(
+      String accessToken, String refreshToken) async {
+    try {
+      var serverIp = await _preferencesService.getServerIp();
+      var kronosToken = await _preferencesService.getKronosToken();
+      final codigoEmpresa = await _preferencesService.getCompanyCode() ?? '1';
+      // Construir a URL para a API
+      final url = '$serverIp/delivery/externo/configuracao';
+
+      // Fazer requisição para o endpoint
+      final response = await dio
+          .put(
+            url,
+            data: {'AccessToken': accessToken, 'RefreshToken': refreshToken},
+            options: Options(
+              headers: {
+                'Content-Type': 'application/json',
+                "Auth": kronosToken ?? "",
+                "Empresa": codigoEmpresa,
+              },
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 

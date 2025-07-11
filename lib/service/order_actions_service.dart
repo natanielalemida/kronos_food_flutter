@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/repositories/order_repository.dart';
 
 class OrderActionsService {
   final dio = Dio();
@@ -23,6 +24,15 @@ class OrderActionsService {
   /// Confirma um pedido
   /// [orderId] O ID do pedido a ser confirmado
   Future<bool> confirmOrder(String orderId) async {
+    final token = await _authRepository.getValidAccessToken();
+
+    if (token == null) {
+      throw Exception("Token de acesso inválido ou expirado");
+    }
+
+    final orderRepository = OrderRepository(Consts.baseUrl, token);
+    var currentPedido = await orderRepository.getPedidoDetails(orderId);
+
     final url = '$_baseUrl/orders/$orderId/confirm';
     var headers = await _getHeaders();
     final response = await dio.post(
@@ -32,7 +42,7 @@ class OrderActionsService {
       ),
     );
 
-    return response.statusCode == 202;
+    return response.statusMessage == "Accepted";
   }
 
   /// Inicia a preparação de um pedido
@@ -77,7 +87,7 @@ class OrderActionsService {
       ),
     );
 
-    return response.statusCode == 202;
+    return response.statusMessage == 'Accepted';
   }
 
   /// Obtém os motivos de cancelamento disponíveis para um pedido

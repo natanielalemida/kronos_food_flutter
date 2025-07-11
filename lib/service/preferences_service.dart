@@ -106,7 +106,7 @@ class PreferencesService {
     return prefs.getString(Consts.kronosTokenKey);
   }
 
-    Future<void> saveCodeUser(String code) async {
+  Future<void> saveCodeUser(String code) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(Consts.codeUser, code);
   }
@@ -115,7 +115,6 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(Consts.codeUser);
   }
-
 
   // Save refresh token
   Future<void> saveRefreshToken(String token) async {
@@ -173,12 +172,12 @@ class PreferencesService {
     final jsonString = jsonEncode(config);
     await prefs.setString(Consts.configKey, jsonString);
 
-    // Se existir informações sobre expiração no config, salve separadamente
-    if (config.containsKey('expiresIn') && config.containsKey('accessToken')) {
-      final expiresInSeconds = config['expiresIn'] as int;
-      final expirationTime =
-          DateTime.now().add(Duration(seconds: expiresInSeconds));
-      await saveExpirationTime(expirationTime);
+    if (config.containsKey('dataHoraToken') &&
+        config.containsKey('accessToken')) {
+      final expiredData = config['dataHoraToken'] as String;
+      final expirationTime = DateTime.parse(expiredData);
+      await saveExpirationTime(
+          expirationTime.add(const Duration(seconds: 21600)));
       await saveAccessToken(config['accessToken']);
     }
 

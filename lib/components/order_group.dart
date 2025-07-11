@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 
-class OrderGroup extends StatelessWidget {
+class OrderGroup extends StatefulWidget {
   final OrderTimming orderTimming;
   final String title;
   final List<PedidoModel> orders;
@@ -29,12 +30,49 @@ class OrderGroup extends StatelessWidget {
   });
 
   @override
+  State<OrderGroup> createState() => _OrderGroupState();
+}
+
+class _OrderGroupState extends State<OrderGroup> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Update every minute to refresh the time ago display
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _getTimeAgo(DateTime createdAt) {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    final minutes = difference.inMinutes;
+    final hours = difference.inHours;
+
+    if (hours > 0) {
+      return '$hours h';
+    } else {
+      return '$minutes min';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Filtrar pedidos com base no tipo de agendamento selecionado
-    var filteredOrders = orders
+    var filteredOrders = widget.orders
         .where((order) =>
             order.orderTiming ==
-            (orderTimming == OrderTimming.immediate
+            (widget.orderTimming == OrderTimming.immediate
                 ? "IMMEDIATE"
                 : "SCHEDULED"))
         .toList();
@@ -50,61 +88,61 @@ class OrderGroup extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.vertical(
                 top: const Radius.circular(12),
-                bottom: Radius.circular(isExpanded ? 0 : 12),
+                bottom: Radius.circular(widget.isExpanded ? 0 : 12),
               ),
             ),
             child: Material(
               color: Colors.transparent,
               borderRadius: BorderRadius.vertical(
                 top: const Radius.circular(12),
-                bottom: Radius.circular(isExpanded ? 0 : 12),
+                bottom: Radius.circular(widget.isExpanded ? 0 : 12),
               ),
               child: InkWell(
                 onTap: () {
                   if (filteredOrders.isNotEmpty) {
-                    onExpansionChanged(!isExpanded);
+                    widget.onExpansionChanged(!widget.isExpanded);
                   }
                 },
                 borderRadius: BorderRadius.vertical(
                   top: const Radius.circular(12),
-                  bottom: Radius.circular(isExpanded ? 0 : 12),
+                  bottom: Radius.circular(widget.isExpanded ? 0 : 12),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.05),
+                    color: widget.color.withOpacity(0.05),
                     borderRadius: BorderRadius.vertical(
                       top: const Radius.circular(12),
-                      bottom: Radius.circular(isExpanded ? 0 : 12),
+                      bottom: Radius.circular(widget.isExpanded ? 0 : 12),
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(icon, size: 20, color: color),
+                      Icon(widget.icon, size: 20, color: widget.color),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          "$title (${filteredOrders.length})",
+                          "${widget.title} (${filteredOrders.length})",
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: color,
+                            color: widget.color,
                             fontSize: 15,
                           ),
                         ),
                       ),
                       if (filteredOrders.isNotEmpty)
                         AnimatedRotation(
-                          turns: isExpanded ? 0.5 : 0,
+                          turns: widget.isExpanded ? 0.5 : 0,
                           duration: const Duration(milliseconds: 300),
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
+                              color: widget.color.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.keyboard_arrow_down,
-                              color: color,
+                              color: widget.color,
                               size: 20,
                             ),
                           ),
@@ -117,7 +155,7 @@ class OrderGroup extends StatelessWidget {
           ),
 
           // Lista expansível de pedidos (só aparece se houver pedidos e estiver expandido)
-          if (filteredOrders.isNotEmpty && isExpanded)
+          if (filteredOrders.isNotEmpty && widget.isExpanded)
             AnimatedSize(
               duration: const Duration(milliseconds: 300),
               child: Container(
@@ -149,25 +187,12 @@ class OrderGroup extends StatelessWidget {
                     ),
                     itemBuilder: (context, index) {
                       final order = filteredOrders[index];
-                      final isSelected = order.id == selectedOrderId;
-
-                      // Calcular tempo desde a criação do pedido
-                      final now = DateTime.now();
-                      final difference = now.difference(order.createdAt);
-                      final minutes = difference.inMinutes;
-                      final hours = difference.inHours;
-
-                      String timeAgo;
-                      if (hours > 0) {
-                        timeAgo = '$hours h';
-                      } else {
-                        timeAgo = '$minutes min';
-                      }
+                      final isSelected = order.id == widget.selectedOrderId;
 
                       return Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () => onOrderSelected(order, statusCode),
+                          onTap: () => widget.onOrderSelected(order, widget.statusCode),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.symmetric(
@@ -176,12 +201,12 @@ class OrderGroup extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? color.withOpacity(0.08)
+                                  ? widget.color.withOpacity(0.08)
                                   : Colors.transparent,
                               border: Border(
                                 left: BorderSide(
                                   color: isSelected
-                                      ? color
+                                      ? widget.color
                                       : Colors.transparent,
                                   width: 4,
                                 ),
@@ -205,7 +230,7 @@ class OrderGroup extends StatelessWidget {
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,
                                                 color: isSelected
-                                                    ? color
+                                                    ? widget.color
                                                     : Colors.black87,
                                               ),
                                             ),
@@ -216,7 +241,7 @@ class OrderGroup extends StatelessWidget {
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,
                                                 color: isSelected
-                                                    ? color
+                                                    ? widget.color
                                                     : Colors.black87,
                                               ),
                                             ),
@@ -224,7 +249,7 @@ class OrderGroup extends StatelessWidget {
                                         ],
                                       ),
                                       const SizedBox(height: 4),
-                                      if (statusCode == "PLC") ...[
+                                      if (widget.statusCode == "PLC") ...[
                                         Row(
                                           children: [
                                             Icon(
@@ -234,7 +259,7 @@ class OrderGroup extends StatelessWidget {
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
-                                              "${_formatTime(order.createdAt)} ($timeAgo)",
+                                              "${_formatTime(order.createdAt)} (${_getTimeAgo(order.createdAt)})",
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey[600],
@@ -242,7 +267,7 @@ class OrderGroup extends StatelessWidget {
                                             ),
                                           ],
                                         ),
-                                      ] else if (statusCode == "CFM") ...[
+                                      ] else if (widget.statusCode == "CFM") ...[
                                         Row(
                                           children: [
                                             Icon(
@@ -260,7 +285,7 @@ class OrderGroup extends StatelessWidget {
                                             ),
                                           ],
                                         ),
-                                      ] else if (statusCode == "DSP") ...[
+                                      ] else if (widget.statusCode == "DSP") ...[
                                         Row(
                                           children: [
                                             Icon(
