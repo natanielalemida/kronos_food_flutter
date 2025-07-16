@@ -446,7 +446,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                       var service = KronosRepository();
                       service
                           .cancelarPedido(
-                              widget.controller.selectedPedido.value,
+                              widget.controller.selectedPedido.value?.id,
                               reason['description'])
                           .then((value) {
                         return true;

@@ -42,7 +42,7 @@ class KronosRepository {
     }
   }
 
-    Future<List> getEntregadores() async {
+  Future<List> getEntregadores() async {
     final kronosToken = await _preferencesService.getKronosToken() ?? "";
     final serverIp =
         await _preferencesService.getServerIp() ?? "http://localhost:5000";
@@ -139,7 +139,7 @@ class KronosRepository {
     final url = '$serverIp/delivery/pedido/finalizar';
     var body = {
       "IdPedidos": [pedido.id],
-      "CodigoCaixaMovimento": caixa?['Codigo'] ,
+      "CodigoCaixaMovimento": caixa?['Codigo'],
       "DataHora": pedido.delivery.deliveryDateTime.toIso8601String()
     };
     final response = await dio
@@ -165,7 +165,7 @@ class KronosRepository {
     }
   }
 
-  Future<bool> cancelarPedido(PedidoModel? pedido, String reason) async {
+  Future<bool> cancelarPedido(String? id, String reason) async {
     final kronosToken = await _preferencesService.getKronosToken() ?? "";
 
     final company = await _preferencesService.getCompanyCode() ?? "";
@@ -186,7 +186,7 @@ class KronosRepository {
 
     final url = '$serverIp/delivery/pedido/cancelar';
     var body = {
-      "IdPedido": pedido?.id,
+      "IdPedido": id,
       "Justificativa": reason,
       "CodigoResponsavelOperacao": int.parse(codeUser!),
     };

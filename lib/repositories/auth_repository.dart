@@ -54,13 +54,17 @@ class AuthRepository {
 
       // Salva o novo token nos preferences
 
+      final dateTime = DateTime.now();
+      final expiresIn = tokenData['expiresIn'] ?? 21600;
+      final expirationTime = dateTime.add(Duration(seconds: expiresIn));
+
       await _saveTokensToBackend(
-          tokenData['accessToken'], tokenData['refreshToken']);
+          tokenData['accessToken'], tokenData['refreshToken'], expirationTime);
 
       await saveConfig({
         'accessToken': tokenData['accessToken'],
         'refreshToken': tokenData['refreshToken'],
-        'dataHoraToken': DateTime.now().toIso8601String()
+        'dataHoraToken': expirationTime.toIso8601String()
       });
 
       // Atualiza o mainController com os novos tokens
@@ -74,7 +78,7 @@ class AuthRepository {
   }
 
   Future<bool> _saveTokensToBackend(
-      String accessToken, String refreshToken) async {
+      String accessToken, String refreshToken, DateTime dataHoraToken) async {
     try {
       var serverIp = await _preferencesService.getServerIp();
       var kronosToken = await _preferencesService.getKronosToken();
@@ -86,7 +90,11 @@ class AuthRepository {
       final response = await dio
           .put(
             url,
-            data: {'AccessToken': accessToken, 'RefreshToken': refreshToken},
+            data: {
+              'AccessToken': accessToken,
+              'RefreshToken': refreshToken,
+              'DataHoraToken': dataHoraToken.toIso8601String()
+            },
             options: Options(
               headers: {
                 'Content-Type': 'application/json',

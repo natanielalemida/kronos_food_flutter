@@ -176,8 +176,7 @@ class PreferencesService {
         config.containsKey('accessToken')) {
       final expiredData = config['dataHoraToken'] as String;
       final expirationTime = DateTime.parse(expiredData);
-      await saveExpirationTime(
-          expirationTime.add(const Duration(seconds: 21600)));
+      await saveExpirationTime(expirationTime);
       await saveAccessToken(config['accessToken']);
     }
 

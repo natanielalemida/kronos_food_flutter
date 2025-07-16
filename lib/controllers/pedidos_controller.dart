@@ -284,6 +284,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             {"id": event.id}
           ]);
         }
+        var service = KronosRepository();
+        await service.cancelarPedido(orderId, 'cancelamento ifood');
       } else {
         try {
           await _loadPreferences();

@@ -1,3 +1,4 @@
+#pragma comment(lib, "windowsapp")
 #include "utils.h"
 
 #include <flutter_windows.h>

@@ -61,12 +61,11 @@ class _PrimeiroAcessoDialogState extends State<PrimeiroAcessoDialog> {
 
   // Método para salvar os tokens no backend
   Future<bool> _saveTokensToBackend(
-      String accessToken, String refreshToken) async {
+      String accessToken, String refreshToken, DateTime dataHoraToken) async {
     try {
       var serverIp = await preferencesService.getServerIp();
       var kronosToken = await preferencesService.getKronosToken();
-      final codigoEmpresa =
-          await preferencesService.getCompanyCode() ?? '1';
+      final codigoEmpresa = await preferencesService.getCompanyCode() ?? '1';
       // Construir a URL para a API
       final url = '$serverIp/delivery/externo/configuracao';
 
@@ -74,7 +73,11 @@ class _PrimeiroAcessoDialogState extends State<PrimeiroAcessoDialog> {
       final response = await dio
           .put(
             url,
-            data: {'AccessToken': accessToken, 'RefreshToken': refreshToken},
+            data: {
+              'AccessToken': accessToken,
+              'RefreshToken': refreshToken,
+              'DataHoraToken': dataHoraToken.toIso8601String()
+            },
             options: Options(
               headers: {
                 'Content-Type': 'application/json',
@@ -316,13 +319,19 @@ class _PrimeiroAcessoDialogState extends State<PrimeiroAcessoDialog> {
                               .authenticateAndGetTokens(false,
                                   authController.text, authCodeVerifier, "");
 
+                          final dateTime = DateTime.now();
+                          final expiresIn = tokenData['expiresIn'] ?? 21600;
+                          final expirationTime =
+                              dateTime.add(Duration(seconds: expiresIn));
+
                           if (tokenData.containsKey('accessToken') &&
                               tokenData.containsKey('refreshToken') &&
                               context.mounted) {
                             // Tentar salvar os tokens no backend
                             final tokensSaved = await _saveTokensToBackend(
                                 tokenData['accessToken'],
-                                tokenData['refreshToken']);
+                                tokenData['refreshToken'],
+                                expirationTime);
 
                             if (tokensSaved) {
                               if (context.mounted) {
