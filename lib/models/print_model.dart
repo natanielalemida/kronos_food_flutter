@@ -1,27 +1,50 @@
 import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
+import 'package:kronos_food/models/pedido_model.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+String formatDiscountsCompact(List<Benefit> benefits) {
+  if (benefits.isEmpty) return 'Sem descontos';
+
+  final details = <String>[];
+  double totalDiscount = 0;
+
+  for (final benefit in benefits) {
+    totalDiscount += benefit.value;
+
+    for (final sponsorship in benefit.sponsorshipValues) {
+      if (sponsorship.value > 0) {
+        details.add(
+            '${sponsorship.name}: ${sponsorship.value.toStringAsFixed(2)} (${sponsorship.description})');
+      }
+    }
+  }
+
+  return 'Desconto: -${totalDiscount.toStringAsFixed(2)} (${details.join(', ')})';
+}
+
 Future<void> printReceipt(pedido) async {
   final version = await _loadVersion();
-  final pdfBytes = await _generateReceipt(PdfPageFormat.roll80, pedido, version);
-  
+  final pdfBytes =
+      await _generateReceipt(PdfPageFormat.roll80, pedido, version);
+
   final printers = await Printing.listPrinters();
-  
+
   final printer = printers.firstWhere(
-    (p) => p.isDefault, 
+    (p) => p.isDefault,
     orElse: () => printers.first,
   );
-  
+
   await Printing.directPrintPdf(
     printer: printer,
     onLayout: (_) => pdfBytes,
   );
 }
+
 Future<String> _loadVersion() async {
   final info = await PackageInfo.fromPlatform();
   return '${info.version}+${info.buildNumber}';
@@ -166,7 +189,7 @@ Future<Uint8List> _generateReceipt(
             _receiptLine('Taxa Entrega', pedido.total.deliveryFee, font: font),
             _receiptLine('Taxa Adicional', pedido.total.additionalFees,
                 font: font),
-            _receiptLine('Desconto', -pedido.total.benefits, font: font),
+ 
             _receiptLine('TOTAL', pedido.total.orderAmount, font: fontBold),
             pw.Divider(thickness: 0.8),
 

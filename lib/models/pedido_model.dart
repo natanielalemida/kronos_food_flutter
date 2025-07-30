@@ -18,10 +18,12 @@ class PedidoModel {
   Customer customer;
   List<Item> items;
   Total total;
+  List<Benefit> benefits;
   Payments payments;
   List<AdditionalFee> additionalFees;
   AdditionalInfo additionalInfo;
   String status;
+  
   List<EventModel> events = [];
   // Definir um setter personalizado para o status que garante consistência
   set statusCode(String statusCode) {
@@ -54,6 +56,7 @@ class PedidoModel {
     required this.additionalInfo,
     required this.status,
     required this.events,
+    this.benefits = const [],
   });
 
   factory PedidoModel.fromKronos(Map<String, dynamic> json) {
@@ -103,6 +106,10 @@ class PedidoModel {
           ? AdditionalInfo.fromKronos(json['AdditionalInfo'])
           : AdditionalInfo(),
       status: json['Status'] ?? "",
+       benefits: (json['Benefits'] as List?)
+              ?.map((i) => Benefit.fromKronos(i))
+              .toList() ??
+          [],
       events: json['Events'] != null
           ? (json['Events'] as List)
               .map((e) => EventModel.fromKronos(e))
@@ -159,6 +166,10 @@ class PedidoModel {
             ? AdditionalInfo.fromJson(json['additionalInfo'])
             : AdditionalInfo(),
         status: json['status'] ?? "",
+             benefits: (json['benefits'] as List?)
+              ?.map((i) => Benefit.fromJson(i))
+              .toList() ??
+          [],
         events: []);
   }
 
@@ -181,6 +192,7 @@ class PedidoModel {
       'Merchant': merchant.toMap(),
       'Customer': customer.toMap(),
       'Payments': payments.toMap(),
+      'Benefits': benefits.map((x) => x.toMap()).toList(),
       'Total': total.toMap(),
       'Events': events.map((e) => e.toJson()).toList(),
     };
@@ -217,6 +229,11 @@ class PedidoModel {
         additionalInfo: AdditionalInfo.fromMap(
             map['additionalInfo'] as Map<String, dynamic>),
         status: map['status'] as String,
+      benefits: List<Benefit>.from(
+        (map['benefits'] as List).map<Benefit>(
+          (x) => Benefit.fromMap(x as Map<String, dynamic>),
+        ),
+      ),
         events: []);
   }
 
@@ -1653,4 +1670,194 @@ class Metadata {
   }
 
   String toJson() => json.encode(toMap());
+}
+
+class Benefit {
+  final double value;
+  final String target;
+  final String? targetId;
+  final List<SponsorshipValue> sponsorshipValues;
+  final Campaign campaign;
+
+  Benefit({
+    required this.value,
+    required this.target,
+    this.targetId,
+    required this.sponsorshipValues,
+    required this.campaign,
+  });
+
+  factory Benefit.fromKronos(Map<String, dynamic> json) {
+    return Benefit(
+      value: json['Value'] is int
+          ? (json['Value'] as int).toDouble()
+          : (json['Value'] ?? 0.0),
+      target: json['Target'] ?? '',
+      targetId: json['TargetId'],
+      sponsorshipValues: (json['SponsorshipValues'] as List?)
+              ?.map((i) => SponsorshipValue.fromKronos(i))
+              .toList() ??
+          [],
+      campaign: json['Campaign'] != null
+          ? Campaign.fromKronos(json['Campaign'])
+          : Campaign.empty(),
+    );
+  }
+
+  factory Benefit.fromJson(Map<String, dynamic> json) {
+    return Benefit(
+      value: json['value'] is int
+          ? (json['value'] as int).toDouble()
+          : (json['value'] ?? 0.0),
+      target: json['target'] ?? '',
+      targetId: json['targetId'],
+      sponsorshipValues: (json['sponsorshipValues'] as List?)
+              ?.map((i) => SponsorshipValue.fromJson(i))
+              .toList() ??
+          [],
+      campaign: json['campaign'] != null
+          ? Campaign.fromJson(json['campaign'])
+          : Campaign.empty(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'Value': value,
+      'Target': target,
+      if (targetId != null) 'TargetId': targetId,
+      'SponsorshipValues': sponsorshipValues.map((x) => x.toMap()).toList(),
+      'Campaign': campaign.toMap(),
+    };
+  }
+
+  factory Benefit.fromMap(Map<String, dynamic> map) {
+    return Benefit(
+      value: map['value'] as double,
+      target: map['target'] as String,
+      targetId: map['targetId'] as String?,
+      sponsorshipValues: List<SponsorshipValue>.from(
+        (map['sponsorshipValues'] as List).map<SponsorshipValue>(
+          (x) => SponsorshipValue.fromMap(x as Map<String, dynamic>),
+        ),
+      ),
+      campaign: Campaign.fromMap(map['campaign'] as Map<String, dynamic>),
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Benefit.empty() {
+    return Benefit(
+      value: 0.0,
+      target: '',
+      sponsorshipValues: [],
+      campaign: Campaign.empty(),
+    );
+  }
+}
+
+class SponsorshipValue {
+  final String name;
+  final double value;
+  final String description;
+
+  SponsorshipValue({
+    required this.name,
+    required this.value,
+    required this.description,
+  });
+
+  factory SponsorshipValue.fromKronos(Map<String, dynamic> json) {
+    return SponsorshipValue(
+      name: json['Name'] ?? '',
+      value: json['Value'] is int
+          ? (json['Value'] as int).toDouble()
+          : (json['Value'] ?? 0.0),
+      description: json['Description'] ?? '',
+    );
+  }
+
+  factory SponsorshipValue.fromJson(Map<String, dynamic> json) {
+    return SponsorshipValue(
+      name: json['name'] ?? '',
+      value: json['value'] is int
+          ? (json['value'] as int).toDouble()
+          : (json['value'] ?? 0.0),
+      description: json['description'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'Name': name,
+      'Value': value,
+      'Description': description,
+    };
+  }
+
+  factory SponsorshipValue.fromMap(Map<String, dynamic> map) {
+    return SponsorshipValue(
+      name: map['name'] as String,
+      value: map['value'] as double,
+      description: map['description'] as String,
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory SponsorshipValue.empty() {
+    return SponsorshipValue(
+      name: '',
+      value: 0.0,
+      description: '',
+    );
+  }
+}
+
+class Campaign {
+  final String id;
+  final String name;
+
+  Campaign({
+    required this.id,
+    required this.name,
+  });
+
+  factory Campaign.fromKronos(Map<String, dynamic> json) {
+    return Campaign(
+      id: json['Id'] ?? '',
+      name: json['Name'] ?? '',
+    );
+  }
+
+  factory Campaign.fromJson(Map<String, dynamic> json) {
+    return Campaign(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'Id': id,
+      'Name': name,
+    };
+  }
+
+  factory Campaign.fromMap(Map<String, dynamic> map) {
+    return Campaign(
+      id: map['id'] as String,
+      name: map['name'] as String,
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Campaign.empty() {
+    return Campaign(
+      id: '',
+      name: '',
+    );
+  }
 }

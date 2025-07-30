@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:kronos_food/models/pedido_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -59,6 +60,24 @@ class _OrderDetailsState extends State<OrderDetails> {
     });
   }
 
+  List<Map<String, dynamic>> extractDiscountDetails(List<Benefit> benefits) {
+    final List<Map<String, dynamic>> discountDetails = [];
+
+    for (final benefit in benefits) {
+      for (final sponsorship in benefit.sponsorshipValues) {
+        if (sponsorship.value > 0) {
+          discountDetails.add({
+            'name': sponsorship.name,
+            'value': sponsorship.value,
+            'description': sponsorship.description,
+          });
+        }
+      }
+    }
+
+    return discountDetails;
+  }
+
   String _formatPaymentMethod(String method) {
     switch (method.toUpperCase()) {
       case 'CREDIT':
@@ -108,6 +127,8 @@ class _OrderDetailsState extends State<OrderDetails> {
     final font = await PdfGoogleFonts.robotoRegular();
     final fontBold = await PdfGoogleFonts.robotoBold();
 
+    final discounts = extractDiscountDetails(pedido.benefits);
+
     pw.Widget _receiptLine(String label, double value,
         {required pw.Font font}) {
       return pw.Row(
@@ -116,6 +137,17 @@ class _OrderDetailsState extends State<OrderDetails> {
           pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
           pw.Text('R\$ ${value.toStringAsFixed(2)}',
               style: pw.TextStyle(font: font, fontSize: 8)),
+        ],
+      );
+    }
+
+    pw.Widget _receiptLineString(String label, String value,
+        {required pw.Font font}) {
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
+          pw.Text(value, style: pw.TextStyle(font: font, fontSize: 8)),
         ],
       );
     }
@@ -239,11 +271,17 @@ class _OrderDetailsState extends State<OrderDetails> {
                   font: font),
               _receiptLine('Taxa Adicional', pedido.total.additionalFees,
                   font: font),
-              _receiptLine('Desconto', -pedido.total.benefits, font: font),
+
+              ...discounts.map((discount) {
+                return _receiptLineString(
+                  'Desconto',
+                  '${discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
+                  font: font,
+                );
+              }),
               _receiptLine('TOTAL', pedido.total.orderAmount, font: fontBold),
               pw.Divider(thickness: 0.8),
 
-              // PAGAMENTO
               pw.Center(
                   child: pw.Text('PAGAMENTO',
                       style: pw.TextStyle(font: fontBold, fontSize: 9))),
@@ -331,60 +369,12 @@ class _OrderDetailsState extends State<OrderDetails> {
     return pdf.save();
   }
 
-  pw.Widget _receiptLine(String title, double value, {required pw.Font font}) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(
-          title,
-          style: pw.TextStyle(font: font, fontSize: 9),
-        ),
-        pw.Text(
-          'R\$ ${value.toStringAsFixed(2)}',
-          style: pw.TextStyle(font: font, fontSize: 9),
-        ),
-      ],
-    );
-  }
 
-  pw.Widget _line(String title, double value, {bool bold = false}) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(title,
-            style: pw.TextStyle(
-                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
-        pw.Text(
-          'R\$ ${value >= 0 ? value.toStringAsFixed(2) : '- ${value.abs().toStringAsFixed(2)}'}',
-          style: pw.TextStyle(
-              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
-        ),
-      ],
-    );
-  }
-
-  pw.Widget _paymentLine(String label, double value) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text('▐ $label'),
-        pw.Text('▐ R\$ ${value.toStringAsFixed(2)}'),
-      ],
-    );
-  }
 
   Future<void> printReceiptWithDefault() async {
     await Printing.layoutPdf(
       onLayout: (_) => _generateReceipt(PdfPageFormat.roll80),
     );
-  }
-
-  bool _checkIfCancelled(String status) {
-    final upperStatus = status.toUpperCase();
-    return upperStatus.contains('CAN') ||
-        upperStatus.contains('CANCELLED') ||
-        upperStatus.contains('CANCELLATION') ||
-        upperStatus.contains('CANCEL');
   }
 
   Future<void> _updateOrderDetails() async {
@@ -448,8 +438,6 @@ class _OrderDetailsState extends State<OrderDetails> {
       );
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
