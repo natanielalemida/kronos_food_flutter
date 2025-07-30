@@ -369,8 +369,6 @@ class _OrderDetailsState extends State<OrderDetails> {
     return pdf.save();
   }
 
-
-
   Future<void> printReceiptWithDefault() async {
     await Printing.layoutPdf(
       onLayout: (_) => _generateReceipt(PdfPageFormat.roll80),
@@ -567,6 +565,18 @@ class _OrderDetailsState extends State<OrderDetails> {
                                   ],
                                 ),
                               ),
+                              if (widget.controller.selectedPedido.value!
+                                          .schedule.deliveryDateTimeStart !=
+                                      null &&
+                                  widget.controller.selectedPedido.value!
+                                          .schedule.deliveryDateTimeEnd !=
+                                      null) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Horário Agendado: ${DateFormat('HH:mm').format(widget.controller.selectedPedido.value!.schedule.deliveryDateTimeStart!)} - ${DateFormat('HH:mm').format(widget.controller.selectedPedido.value!.schedule.deliveryDateTimeEnd!)}",
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ]
                             ],
                           ),
                           const SizedBox(height: 12),

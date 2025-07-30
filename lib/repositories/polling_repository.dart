@@ -23,7 +23,7 @@ class PollingRepository {
       };
 
       var response = await dio.get(
-          "${Consts.eventsUrl}/events:polling?groups=${Consts.orderStatusGroup}",
+          "${Consts.eventsUrl}/events:polling",
           options: Options(headers: headers));
 
       if (response.statusCode == 200) {

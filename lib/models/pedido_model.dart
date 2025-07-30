@@ -23,7 +23,7 @@ class PedidoModel {
   List<AdditionalFee> additionalFees;
   AdditionalInfo additionalInfo;
   String status;
-  
+  Schedule schedule;
   List<EventModel> events = [];
   // Definir um setter personalizado para o status que garante consistência
   set statusCode(String statusCode) {
@@ -56,6 +56,7 @@ class PedidoModel {
     required this.additionalInfo,
     required this.status,
     required this.events,
+    required this.schedule,
     this.benefits = const [],
   });
 
@@ -70,6 +71,9 @@ class PedidoModel {
           : DateTime.now(),
       category: json['Category'] ?? '',
       orderTiming: json['OrderTiming'] ?? '',
+      schedule: json['schedule'] != null
+          ? Schedule.fromKronos(json['schedule'])
+          : Schedule.empty(),
       orderType: json['OrderType'] ?? '',
       delivery: json['Delivery'] != null
           ? Delivery.fromKronos(json['Delivery'])
@@ -130,6 +134,9 @@ class PedidoModel {
             : DateTime.now(),
         category: json['category'] ?? '',
         orderTiming: json['orderTiming'] ?? '',
+         schedule: json['schedule'] != null
+          ? Schedule.fromJson(json['schedule'])
+          : Schedule.empty(),
         orderType: json['orderType'] ?? '',
         delivery: json['delivery'] != null
             ? Delivery.fromJson(json['delivery'])
@@ -180,6 +187,7 @@ class PedidoModel {
       'CreatedAt': createdAt.toString(),
       'Category': category,
       'OrderTiming': orderTiming,
+      'Schedule': schedule.toMap(),
       'OrderType': orderType,
       'PreparationStartDateTime': preparationStartDateTime.toString(),
       'IsTest': isTest,
@@ -206,6 +214,7 @@ class PedidoModel {
             .toLocal(),
         category: map['category'] as String,
         orderTiming: map['orderTiming'] as String,
+        schedule: Schedule.fromMap(map['schedule'] as Map<String, dynamic>),
         orderType: map['orderType'] as String,
         delivery: Delivery.fromMap(map['delivery'] as Map<String, dynamic>),
         preparationStartDateTime: DateTime.fromMillisecondsSinceEpoch(
@@ -1858,6 +1867,65 @@ class Campaign {
     return Campaign(
       id: '',
       name: '',
+    );
+  }
+}
+
+class Schedule {
+  final DateTime? deliveryDateTimeStart;
+  final DateTime? deliveryDateTimeEnd;
+
+  Schedule({
+    required this.deliveryDateTimeStart,
+    required this.deliveryDateTimeEnd,
+  });
+
+  factory Schedule.fromKronos(Map<String, dynamic> json) {
+    return Schedule(
+      deliveryDateTimeStart: json['deliveryDateTimeStart'] != null
+          ? DateTime.tryParse(json['deliveryDateTimeStart'])
+          : null,
+      deliveryDateTimeEnd: json['deliveryDateTimeEnd'] != null
+          ? DateTime.tryParse(json['deliveryDateTimeEnd'])
+          : null,
+    );
+  }
+
+  factory Schedule.fromJson(Map<String, dynamic> json) {
+    return Schedule(
+      deliveryDateTimeStart: json['deliveryDateTimeStart'] != null
+          ? DateTime.tryParse(json['deliveryDateTimeStart'])?.subtract(const Duration(hours: 3))
+          : null,
+      deliveryDateTimeEnd: json['deliveryDateTimeEnd'] != null
+          ? DateTime.tryParse(json['deliveryDateTimeEnd'])?.subtract(const Duration(hours: 3))
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'deliveryDateTimeStart': deliveryDateTimeStart?.toIso8601String(),
+      'deliveryDateTimeEnd': deliveryDateTimeEnd?.toIso8601String(),
+    };
+  }
+
+  factory Schedule.fromMap(Map<String, dynamic> map) {
+    return Schedule(
+      deliveryDateTimeStart: map['deliveryDateTimeStart'] != null
+          ? DateTime.tryParse(map['deliveryDateTimeStart'])
+          : null,
+      deliveryDateTimeEnd: map['deliveryDateTimeEnd'] != null
+          ? DateTime.tryParse(map['deliveryDateTimeEnd'])
+          : null,
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Schedule.empty() {
+    return Schedule(
+      deliveryDateTimeStart: null,
+      deliveryDateTimeEnd: null,
     );
   }
 }

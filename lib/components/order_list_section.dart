@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:kronos_food/components/order_group.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
@@ -186,6 +187,27 @@ class OrderListSection extends StatelessWidget {
                                             ),
                                           ],
                                         ),
+                                        const SizedBox(height: 4),
+                                        if (order.schedule.deliveryDateTimeStart != null && order.schedule.deliveryDateTimeEnd != null) ...[
+                                                                                  Row(
+                                          children: [
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              "Horário Agend: ${DateFormat('HH:mm').format(order.schedule.deliveryDateTimeStart!)} - ${DateFormat('HH:mm').format(order.schedule.deliveryDateTimeEnd!)}",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        ]
+
                                       ],
                                     ),
                                   ),
