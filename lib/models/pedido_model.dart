@@ -1882,11 +1882,11 @@ class Schedule {
 
   factory Schedule.fromKronos(Map<String, dynamic> json) {
     return Schedule(
-      deliveryDateTimeStart: json['deliveryDateTimeStart'] != null
-          ? DateTime.tryParse(json['deliveryDateTimeStart'])
+      deliveryDateTimeStart: json['DeliveryDateTimeStart'] != null
+          ? DateTime.tryParse(json['DeliveryDateTimeStart'])
           : null,
-      deliveryDateTimeEnd: json['deliveryDateTimeEnd'] != null
-          ? DateTime.tryParse(json['deliveryDateTimeEnd'])
+      deliveryDateTimeEnd: json['DeliveryDateTimeEnd'] != null
+          ? DateTime.tryParse(json['DeliveryDateTimeEnd'])
           : null,
     );
   }

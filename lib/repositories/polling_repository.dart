@@ -21,7 +21,7 @@ class PollingRepository {
         "Authorization": "Bearer $accessToken",
         'Content-type': 'application/json',
       };
-
+ 
       var response = await dio.get(
           "${Consts.eventsUrl}/events:polling",
           options: Options(headers: headers));
