@@ -172,21 +172,21 @@ class _OrderDetailsState extends State<OrderDetails> {
   }
 
   void _showFullScreenImage(String imageUrl) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      child: InteractiveViewer(
-        panEnabled: true,
-        minScale: 0.5,
-        maxScale: 3.0,
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.contain,
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 3.0,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _submitDisputeResponse() async {
     if (_selectedResponseOption == null) return;
@@ -199,31 +199,46 @@ class _OrderDetailsState extends State<OrderDetails> {
       final orderRepository = OrderRepository(Consts.baseUrl, token);
       String action;
 
-      switch (1) {
+      switch (_selectedResponseOption) {
         case 1:
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
           break;
         case 2:
           action = 'propose_partial_refund';
           break;
         case 3:
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
           break;
         default:
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
       }
 
       var result = await orderRepository.respondToDispute(
         action,
+        _rejectionReasonController.text
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Resposta enviada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      _toggleDisputePanel();
+      if (result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Resposta enviada com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      var finalPedido = widget.controller.selectedPedido.value;
+      finalPedido?.status = "CON";
+      if(_selectedResponseOption == 3) {
+        await widget.controller.savePedidoToCache(finalPedido!);
+        await widget.controller.getPedidos();
+      }
+
+
+        _toggleDisputePanel();
+      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -243,7 +258,6 @@ class _OrderDetailsState extends State<OrderDetails> {
     final status =
         widget.controller.selectedPedido.value?.status.toUpperCase() ?? '';
     final isHsd = status == 'HSD';
-    final remainingTime = '9 minutos e 44 segundos';
 
     return Stack(
       children: [
@@ -553,276 +567,320 @@ class _OrderDetailsState extends State<OrderDetails> {
 
         // Painel de Resposta à Disputa
         if (_showDisputePanel)
-  if (_showDisputePanel)
-  Positioned(
-    right: 0,
-    top: 0,
-    bottom: 0,
-    child: Material(
-      elevation: 12,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.4,
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(16),
-              bottomLeft: Radius.circular(16)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      'Problemas no pedido #${widget.controller.selectedPedido.value?.displayId}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+          if (_showDisputePanel)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Material(
+                elevation: 12,
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.4,
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16)),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: _toggleDisputePanel,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Você tem ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" 
-                    ? "até ${DateFormat('HH:mm').format(DateTime.parse(widget.controller.selectedPedido.value?.metadata?.expiresAt.toIso8601String() ?? '').toLocal())}" 
-                    : "tempo limitado"} para responder',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange[800],
-                    fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Caso não responda, ${widget.controller.selectedPedido.value?.customer.name} pode ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" 
-                    ? "recusar o cancelamento automaticamente" 
-                    : "recorrer ao iFood"}',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Cliente solicitou ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" 
-                          ? "cancelamento" 
-                          : "reembolso"} do pedido',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 6),
-                    Text('Motivo: ${widget.controller.selectedPedido.value?.metadata?.message}'),
-                    SizedBox(height: 6),
-                    Text(
-                      'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    
-                    // Exibição das evidências (imagens)
-                    if (widget.controller.selectedPedido.value?.metadata?.details?.evidences?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Evidências enviadas pelo cliente:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 120,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: widget.controller.selectedPedido.value!.metadata!.details.evidences.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final evidence = widget.controller.selectedPedido.value!.metadata!.details.evidences[index];
-                            return GestureDetector(
-                              onTap: () => _showFullScreenImage(evidence.url),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  evidence.url,
-                                  width: 120,
-                                  height: 120,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      width: 120,
-                                      height: 120,
-                                      color: Colors.grey[200],
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: 120,
-                                      height: 120,
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Itens com problemas
-              if (widget.controller.selectedPedido.value?.metadata?.details.items.isNotEmpty ?? false) ...[
-                const Text(
-                  'Itens com problemas:',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                ...widget.controller.selectedPedido.value!.metadata!.details.items.map((item) {
-                  final itemValue = double.parse(item.amount.value) / 100;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                  child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '• ${item.quantity}x Item #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
-                          style: TextStyle(fontWeight: FontWeight.w500),
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Problemas no pedido #${widget.controller.selectedPedido.value?.displayId}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: _toggleDisputePanel,
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8, top: 2),
-                          child: Text(
-                            'Motivo: ${item.reason}',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Você tem ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" ? "até ${DateFormat('HH:mm').format(DateTime.parse(widget.controller.selectedPedido.value?.metadata?.expiresAt.toIso8601String() ?? '').toLocal())}" : "tempo limitado"} para responder',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[800],
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Caso não responda, ${widget.controller.selectedPedido.value?.customer.name} pode ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" ? "recusar o cancelamento automaticamente" : "recorrer ao iFood"}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Cliente solicitou ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"} do pedido',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                  'Motivo: ${widget.controller.selectedPedido.value?.metadata?.message}'),
+                              SizedBox(height: 6),
+                              Text(
+                                'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+
+                              // Exibição das evidências (imagens)
+                              if (widget
+                                      .controller
+                                      .selectedPedido
+                                      .value
+                                      ?.metadata
+                                      ?.details
+                                      ?.evidences
+                                      ?.isNotEmpty ??
+                                  false) ...[
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Evidências enviadas pelo cliente:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 120,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: widget
+                                        .controller
+                                        .selectedPedido
+                                        .value!
+                                        .metadata!
+                                        .details
+                                        .evidences
+                                        .length,
+                                    separatorBuilder: (context, index) =>
+                                        const SizedBox(width: 8),
+                                    itemBuilder: (context, index) {
+                                      final evidence = widget
+                                          .controller
+                                          .selectedPedido
+                                          .value!
+                                          .metadata!
+                                          .details
+                                          .evidences[index];
+                                      return GestureDetector(
+                                        onTap: () =>
+                                            _showFullScreenImage(evidence.url),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Image.network(
+                                            evidence.url,
+                                            width: 120,
+                                            height: 120,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child,
+                                                loadingProgress) {
+                                              if (loadingProgress == null)
+                                                return child;
+                                              return Container(
+                                                width: 120,
+                                                height: 120,
+                                                color: Colors.grey[200],
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    value: loadingProgress
+                                                                .expectedTotalBytes !=
+                                                            null
+                                                        ? loadingProgress
+                                                                .cumulativeBytesLoaded /
+                                                            loadingProgress
+                                                                .expectedTotalBytes!
+                                                        : null,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return Container(
+                                                width: 120,
+                                                height: 120,
+                                                color: Colors.grey[200],
+                                                child: const Icon(
+                                                    Icons.broken_image,
+                                                    color: Colors.grey),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Itens com problemas
+                        if (widget.controller.selectedPedido.value?.metadata
+                                ?.details.items.isNotEmpty ??
+                            false) ...[
+                          const Text(
+                            'Itens com problemas:',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ...widget.controller.selectedPedido.value!.metadata!
+                              .details.items
+                              .map((item) {
+                            final itemValue =
+                                double.parse(item.amount.value) / 100;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ${item.quantity}x Item #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(left: 8, top: 2),
+                                    child: Text(
+                                      'Motivo: ${item.reason}',
+                                      style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Título
+                        const Text('Escolha uma das opções pra responder:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+
+                        _radioCard(
+                          value: 1,
+                          title:
+                              'Aceitar reembolso de R\$ ${widget.controller.selectedPedido.value?.total.orderAmount}',
+                          subtitle:
+                              'Cliente receberá o valor total desse pedido',
+                        ),
+                        _radioCard(
+                          value: 2,
+                          title: 'Enviar proposta de reembolso',
+                          subtitle: 'Cliente pode aceitar ou recusar o valor',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                  'Qual o valor você gostaria de reembolsar?'),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: _partialRefundController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  prefixText: 'R\$ ',
+                                  hintText: 'Digite o valor (até R\$ 12,00)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        _radioCard(
+                          value: 3,
+                          title:
+                              'Recusar ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}',
+                          subtitle:
+                              'Cliente ainda pode solicitar uma análise do iFood',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  'Conte para o cliente por qual motivo você vai recusar o ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}'),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: _rejectionReasonController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  hintText: 'Descreva o motivo*',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text.rich(
+                                TextSpan(
+                                  text: 'Saiba como ',
+                                  style: TextStyle(
+                                      color: Colors.blue[700], fontSize: 12),
+                                  children: const [
+                                    TextSpan(
+                                      text:
+                                          'essa justificativa pode ajudar sua loja a prevenir cancelamentos.',
+                                      style: TextStyle(color: Colors.black87),
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Botão enviar
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _selectedResponseOption != null
+                                ? _submitDisputeResponse
+                                : null,
+                            icon: const Icon(Icons.send),
+                            label: const Text('Enviar resposta'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              textStyle: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }),
-                const SizedBox(height: 16),
-              ],
-
-              // Título
-              const Text('Escolha uma das opções pra responder:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-
- _radioCard(
-              value: 1,
-              title: 'Aceitar reembolso de R\$ ${widget.controller.selectedPedido.value?.total.orderAmount}',
-              subtitle: 'Cliente receberá o valor total desse pedido',
-            ),
-            _radioCard(
-              value: 2,
-              title: 'Enviar proposta de reembolso',
-              subtitle: 'Cliente pode aceitar ou recusar o valor',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Qual o valor você gostaria de reembolsar?'),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _partialRefundController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      prefixText: 'R\$ ',
-                      hintText: 'Digite o valor (até R\$ 12,00)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-              _radioCard(
-                value: 3,
-                title: 'Recusar ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" 
-                    ? "cancelamento" 
-                    : "reembolso"}',
-                subtitle: 'Cliente ainda pode solicitar uma análise do iFood',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Conte para o cliente por qual motivo você vai recusar o ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" 
-                        ? "cancelamento" 
-                        : "reembolso"}'),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _rejectionReasonController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Descreva o motivo*',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text.rich(
-                      TextSpan(
-                        text: 'Saiba como ',
-                        style: TextStyle(color: Colors.blue[700], fontSize: 12),
-                        children: const [
-                          TextSpan(
-                            text: 'essa justificativa pode ajudar sua loja a prevenir cancelamentos.',
-                            style: TextStyle(color: Colors.black87),
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Botão enviar
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _selectedResponseOption != null
-                      ? _submitDisputeResponse
-                      : null,
-                  icon: const Icon(Icons.send),
-                  label: const Text('Enviar resposta'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    textStyle: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  ),
+            ),
       ],
     );
   }
