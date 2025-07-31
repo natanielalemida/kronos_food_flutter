@@ -24,6 +24,7 @@ class PedidoModel {
   AdditionalInfo additionalInfo;
   String status;
   Schedule schedule;
+  DisputeMetadata? metadata;
   List<EventModel> events = [];
   // Definir um setter personalizado para o status que garante consistência
   set statusCode(String statusCode) {
@@ -57,6 +58,7 @@ class PedidoModel {
     required this.status,
     required this.events,
     required this.schedule,
+    this.metadata,
     this.benefits = const [],
   });
 
@@ -70,6 +72,9 @@ class PedidoModel {
               : DateTime.parse(json['CreatedAt']))
           : DateTime.now(),
       category: json['Category'] ?? '',
+          metadata: json['Metadata'] != null
+          ? DisputeMetadata.fromKronos(json['Metadata'])
+          : null,
       orderTiming: json['OrderTiming'] ?? '',
       schedule: json['schedule'] != null
           ? Schedule.fromKronos(json['schedule'])
@@ -134,6 +139,9 @@ class PedidoModel {
             : DateTime.now(),
         category: json['category'] ?? '',
         orderTiming: json['orderTiming'] ?? '',
+                  metadata: json['metadata'] != null
+          ? DisputeMetadata.fromJson(json['metadata'])
+          : null,
          schedule: json['schedule'] != null
           ? Schedule.fromJson(json['schedule'])
           : Schedule.empty(),
@@ -1926,6 +1934,429 @@ class Schedule {
     return Schedule(
       deliveryDateTimeStart: null,
       deliveryDateTimeEnd: null,
+    );
+  }
+}
+
+class DisputeMetadata {
+  final String disputeId;
+  final String action;
+  final String timeoutAction;
+  final String handshakeType;
+  final String handshakeGroup;
+  final String message;
+  final DateTime expiresAt;
+  final List<DisputeAlternative> alternatives;
+  final DisputeDetails details;
+  final DateTime createdAt;
+
+  DisputeMetadata({
+    required this.disputeId,
+    required this.action,
+    required this.timeoutAction,
+    required this.handshakeType,
+    required this.handshakeGroup,
+    required this.message,
+    required this.expiresAt,
+    required this.alternatives,
+    required this.details,
+    required this.createdAt,
+  });
+
+  factory DisputeMetadata.fromKronos(Map<String, dynamic> json) {
+    return DisputeMetadata(
+      disputeId: json['DisputeId'] ?? '',
+      action: json['Action'] ?? '',
+      timeoutAction: json['TimeoutAction'] ?? '',
+      handshakeType: json['HandshakeType'] ?? '',
+      handshakeGroup: json['HandshakeGroup'] ?? '',
+      message: json['Message'] ?? '',
+      expiresAt: json['ExpiresAt'] != null 
+          ? DateTime.parse(json['ExpiresAt']) 
+          : DateTime.now(),
+      alternatives: (json['Alternatives'] as List?)
+          ?.map((a) => DisputeAlternative.fromKronos(a))
+          .toList() ?? [],
+      details: json['Metadata'] != null 
+          ? DisputeDetails.fromKronos(json['Metadata']) 
+          : DisputeDetails.empty(),
+      createdAt: json['CreatedAt'] != null 
+          ? DateTime.parse(json['CreatedAt']) 
+          : DateTime.now(),
+    );
+  }
+
+  factory DisputeMetadata.fromJson(Map<String, dynamic> json) {
+    return DisputeMetadata(
+      disputeId: json['disputeId'] ?? '',
+      action: json['action'] ?? '',
+      timeoutAction: json['timeoutAction'] ?? '',
+      handshakeType: json['handshakeType'] ?? '',
+      handshakeGroup: json['handshakeGroup'] ?? '',
+      message: json['message'] ?? '',
+      expiresAt: json['expiresAt'] != null 
+          ? DateTime.parse(json['expiresAt']) 
+          : DateTime.now(),
+      alternatives: (json['alternatives'] as List?)
+          ?.map((a) => DisputeAlternative.fromJson(a))
+          .toList() ?? [],
+      details: json['metadata'] != null 
+          ? DisputeDetails.fromJson(json['metadata']) 
+          : DisputeDetails.empty(),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'disputeId': disputeId,
+      'action': action,
+      'timeoutAction': timeoutAction,
+      'handshakeType': handshakeType,
+      'handshakeGroup': handshakeGroup,
+      'message': message,
+      'expiresAt': expiresAt.toIso8601String(),
+      'alternatives': alternatives.map((a) => a.toMap()).toList(),
+      'metadata': details.toMap(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory DisputeMetadata.empty() {
+    return DisputeMetadata(
+      disputeId: '',
+      action: '',
+      timeoutAction: '',
+      handshakeType: '',
+      handshakeGroup: '',
+      message: '',
+      expiresAt: DateTime.now(),
+      alternatives: [],
+      details: DisputeDetails.empty(),
+      createdAt: DateTime.now(),
+    );
+  }
+}
+
+class DisputeAlternative {
+  final String id;
+  final String type;
+  final DisputeAlternativeMetadata metadata;
+
+  DisputeAlternative({
+    required this.id,
+    required this.type,
+    required this.metadata,
+  });
+
+    factory DisputeAlternative.fromKronos(Map<String, dynamic> json) {
+    return DisputeAlternative(
+      id: json['Id'] ?? '',
+      type: json['Type'] ?? '',
+      metadata: json['Metadata'] != null 
+          ? DisputeAlternativeMetadata.fromKronos(json['Metadata']) 
+          : DisputeAlternativeMetadata.empty(),
+    );
+  }
+
+  factory DisputeAlternative.fromJson(Map<String, dynamic> json) {
+    return DisputeAlternative(
+      id: json['id'] ?? '',
+      type: json['type'] ?? '',
+      metadata: json['metadata'] != null 
+          ? DisputeAlternativeMetadata.fromJson(json['metadata']) 
+          : DisputeAlternativeMetadata.empty(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'type': type,
+      'metadata': metadata.toMap(),
+    };
+  }
+}
+
+class DisputeAlternativeMetadata {
+  final MonetaryAmount maxAmount;
+
+  DisputeAlternativeMetadata({
+    required this.maxAmount,
+  });
+
+   factory DisputeAlternativeMetadata.fromKronos(Map<String, dynamic> json) {
+    return DisputeAlternativeMetadata(
+      maxAmount: json['MaxAmount'] != null 
+          ? MonetaryAmount.fromKronos(json['MaxAmount']) 
+          : MonetaryAmount.empty(),
+    );
+  }
+
+  factory DisputeAlternativeMetadata.fromJson(Map<String, dynamic> json) {
+    return DisputeAlternativeMetadata(
+      maxAmount: json['maxAmount'] != null 
+          ? MonetaryAmount.fromJson(json['maxAmount']) 
+          : MonetaryAmount.empty(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'maxAmount': maxAmount.toMap(),
+    };
+  }
+
+  factory DisputeAlternativeMetadata.empty() {
+    return DisputeAlternativeMetadata(
+      maxAmount: MonetaryAmount.empty(),
+    );
+  }
+}
+
+class DisputeDetails {
+  final List<DisputeEvidence> evidences;
+  final List<DisputedItem> items;
+  final List<DisputedGarnishItem> garnishItems;
+
+  DisputeDetails({
+    required this.evidences,
+    required this.items,
+    required this.garnishItems,
+  });
+
+    factory DisputeDetails.fromKronos(Map<String, dynamic> json) {
+    return DisputeDetails(
+      evidences: (json['Evidences'] as List?)
+          ?.map((e) => DisputeEvidence.fromKronos(e))
+          .toList() ?? [],
+      items: (json['Items'] as List?)
+          ?.map((i) => DisputedItem.fromKronos(i))
+          .toList() ?? [],
+      garnishItems: (json['GarnishItems'] as List?)
+          ?.map((g) => DisputedGarnishItem.fromKronos(g))
+          .toList() ?? [],
+    );
+  }
+
+  factory DisputeDetails.fromJson(Map<String, dynamic> json) {
+    return DisputeDetails(
+      evidences: (json['evidences'] as List?)
+          ?.map((e) => DisputeEvidence.fromJson(e))
+          .toList() ?? [],
+      items: (json['items'] as List?)
+          ?.map((i) => DisputedItem.fromJson(i))
+          .toList() ?? [],
+      garnishItems: (json['garnishItems'] as List?)
+          ?.map((g) => DisputedGarnishItem.fromJson(g))
+          .toList() ?? [],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'evidences': evidences.map((e) => e.toMap()).toList(),
+      'items': items.map((i) => i.toMap()).toList(),
+      'garnishItems': garnishItems.map((g) => g.toMap()).toList(),
+    };
+  }
+
+  factory DisputeDetails.empty() {
+    return DisputeDetails(
+      evidences: [],
+      items: [],
+      garnishItems: [],
+    );
+  }
+}
+
+class DisputeEvidence {
+  final String url;
+  final String contentType;
+
+  DisputeEvidence({
+    required this.url,
+    required this.contentType,
+  });
+
+    factory DisputeEvidence.fromKronos(Map<String, dynamic> json) {
+    return DisputeEvidence(
+      url: json['Url'] ?? '',
+      contentType: json['ContentType'] ?? '',
+    );
+  }
+
+  factory DisputeEvidence.fromJson(Map<String, dynamic> json) {
+    return DisputeEvidence(
+      url: json['url'] ?? '',
+      contentType: json['contentType'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'url': url,
+      'contentType': contentType,
+    };
+  }
+}
+
+class DisputedItem {
+  final String id;
+  final String uniqueId;
+  final String integrationId;
+  final int index;
+  final int quantity;
+  final MonetaryAmount amount;
+  final String reason;
+
+  DisputedItem({
+    required this.id,
+    required this.uniqueId,
+    required this.integrationId,
+    required this.index,
+    required this.quantity,
+    required this.amount,
+    required this.reason,
+  });
+
+  factory DisputedItem.fromKronos(Map<String, dynamic> json) {
+    return DisputedItem(
+      id: json['Id'] ?? '',
+      uniqueId: json['UniqueId'] ?? '',
+      integrationId: json['IntegrationId'] ?? '',
+      index: json['Index'] ?? 0,
+      quantity: json['Quantity'] ?? 0,
+      amount: json['Amount'] != null 
+          ? MonetaryAmount.fromKronos(json['Amount']) 
+          : MonetaryAmount.empty(),
+      reason: json['Reason'] ?? '',
+    );
+  }
+
+  factory DisputedItem.fromJson(Map<String, dynamic> json) {
+    return DisputedItem(
+      id: json['id'] ?? '',
+      uniqueId: json['uniqueId'] ?? '',
+      integrationId: json['integrationId'] ?? '',
+      index: json['index'] ?? 0,
+      quantity: json['quantity'] ?? 0,
+      amount: json['amount'] != null 
+          ? MonetaryAmount.fromJson(json['amount']) 
+          : MonetaryAmount.empty(),
+      reason: json['reason'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'uniqueId': uniqueId,
+      'integrationId': integrationId,
+      'index': index,
+      'quantity': quantity,
+      'amount': amount.toMap(),
+      'reason': reason,
+    };
+  }
+}
+
+class DisputedGarnishItem {
+  final String id;
+  final String parentUniqueId;
+  final String integrationId;
+  final int quantity;
+  final int index;
+  final MonetaryAmount amount;
+  final String reason;
+
+  DisputedGarnishItem({
+    required this.id,
+    required this.parentUniqueId,
+    required this.integrationId,
+    required this.quantity,
+    required this.index,
+    required this.amount,
+    required this.reason,
+  });
+
+  factory DisputedGarnishItem.fromKronos(Map<String, dynamic> json) {
+    return DisputedGarnishItem(
+      id: json['Id'] ?? '',
+      parentUniqueId: json['ParentUniqueId'] ?? '',
+      integrationId: json['IntegrationId'] ?? '',
+      quantity: json['Quantity'] ?? 0,
+      index: json['Index'] ?? 0,
+      amount: json['Amount'] != null 
+          ? MonetaryAmount.fromKronos(json['Amount']) 
+          : MonetaryAmount.empty(),
+      reason: json['Reason'] ?? '',
+    );
+  }
+
+  factory DisputedGarnishItem.fromJson(Map<String, dynamic> json) {
+    return DisputedGarnishItem(
+      id: json['id'] ?? '',
+      parentUniqueId: json['parentUniqueId'] ?? '',
+      integrationId: json['integrationId'] ?? '',
+      quantity: json['quantity'] ?? 0,
+      index: json['index'] ?? 0,
+      amount: json['amount'] != null 
+          ? MonetaryAmount.fromJson(json['amount']) 
+          : MonetaryAmount.empty(),
+      reason: json['reason'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'parentUniqueId': parentUniqueId,
+      'integrationId': integrationId,
+      'quantity': quantity,
+      'index': index,
+      'amount': amount.toMap(),
+      'reason': reason,
+    };
+  }
+}
+
+class MonetaryAmount {
+  final String value;
+  final String currency;
+
+  MonetaryAmount({
+    required this.value,
+    required this.currency,
+  });
+
+   factory MonetaryAmount.fromKronos(Map<String, dynamic> json) {
+    return MonetaryAmount(
+      value: json['Value']?.toString() ?? '0',
+      currency: json['Currency'] ?? 'BRL',
+    );
+  }
+
+  factory MonetaryAmount.fromJson(Map<String, dynamic> json) {
+    return MonetaryAmount(
+      value: json['value']?.toString() ?? '0',
+      currency: json['currency'] ?? 'BRL',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'value': value,
+      'currency': currency,
+    };
+  }
+
+  factory MonetaryAmount.empty() {
+    return MonetaryAmount(
+      value: '0',
+      currency: 'BRL',
     );
   }
 }

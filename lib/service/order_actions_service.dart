@@ -30,9 +30,6 @@ class OrderActionsService {
       throw Exception("Token de acesso inválido ou expirado");
     }
 
-    final orderRepository = OrderRepository(Consts.baseUrl, token);
-    var currentPedido = await orderRepository.getPedidoDetails(orderId);
-
     final url = '$_baseUrl/orders/$orderId/confirm';
     var headers = await _getHeaders();
     final response = await dio.post(

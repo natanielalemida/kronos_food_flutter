@@ -17,13 +17,14 @@ class PollingRepository {
         throw Exception("Token de acesso inválido ou expirado");
       }
 
+
       final headers = {
         "Authorization": "Bearer $accessToken",
         'Content-type': 'application/json',
       };
  
       var response = await dio.get(
-          "${Consts.eventsUrl}/events:polling",
+          "${Consts.eventsUrl}/events:polling?groups=${Consts.orderStatusGroup}&types=HSD",
           options: Options(headers: headers));
 
       if (response.statusCode == 200) {

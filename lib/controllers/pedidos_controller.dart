@@ -294,12 +294,15 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             developer
                 .log('Detalhes do pedido $orderId atualizados com sucesso');
             updatedPedido.status = eventCode;
+            if (eventCode == 'HSD') {
+              updatedPedido.metadata = DisputeMetadata.fromJson(event.metadata);
+            }
 
             String status = mapApiStatusToCode(updatedPedido.status.isEmpty
                 ? eventCode
                 : updatedPedido.status);
 
-            if (status == 'CON') {
+            if (status == 'CON' || status == 'HSD') {
               final sucess = await pollingRepository.acknowledgeEvents([
                 {"id": event.id}
               ]);

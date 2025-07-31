@@ -71,6 +71,31 @@ class OrderRepository {
     }
   }
 
+   Future<bool> respondToDispute(String action) async {
+    final accessToken = await _authRepository.getValidAccessToken();
+    if (accessToken == null) {
+      throw Exception("Token de acesso inválido ou expirado");
+    }
+
+    final updatedHeaders = {
+      "Authorization": "Bearer $accessToken",
+      'Content-type': 'application/json',
+    };
+
+    var url = '$baseUrl/disputes/d44049eb-da14-47fe-89cb-404d69b7d618/accept';
+
+    try {
+      var response = await dio.post(url,
+          options: Options(
+              headers: updatedHeaders)); 
+
+      return true;
+    } catch (e) {
+      print("Erro ao aceitar pedido: $e");
+      return false;
+    }
+  }
+
   // Rejeitar pedido
   Future<bool> rejectOrder(
       String orderId, String cancellationCode, String observation) async {
