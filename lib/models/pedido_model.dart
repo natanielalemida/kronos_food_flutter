@@ -76,8 +76,8 @@ class PedidoModel {
           ? DisputeMetadata.fromKronos(json['Metadata'])
           : null,
       orderTiming: json['OrderTiming'] ?? '',
-      schedule: json['schedule'] != null
-          ? Schedule.fromKronos(json['schedule'])
+      schedule: json['Schedule'] != null
+          ? Schedule.fromKronos(json['Schedule'])
           : Schedule.empty(),
       orderType: json['OrderType'] ?? '',
       delivery: json['Delivery'] != null
@@ -1912,8 +1912,8 @@ class Schedule {
 
   Map<String, dynamic> toMap() {
     return {
-      'deliveryDateTimeStart': deliveryDateTimeStart?.toIso8601String(),
-      'deliveryDateTimeEnd': deliveryDateTimeEnd?.toIso8601String(),
+      'DeliveryDateTimeStart': deliveryDateTimeStart?.toIso8601String(),
+      'DeliveryDateTimeEnd': deliveryDateTimeEnd?.toIso8601String(),
     };
   }
 
