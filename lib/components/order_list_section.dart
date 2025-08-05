@@ -256,6 +256,12 @@ class OrderListSection extends StatelessWidget {
                       })
                     ] else ...[
                       // Sempre mostra todos os grupos, mesmo vazios
+                                            _buildOrderGroup(
+                        title: 'Urgencias',
+                        statusCode: Consts.statusDispute,
+                        color: const Color.fromARGB(255, 214, 180, 28),
+                        icon: Icons.fast_forward,
+                      ),
                       _buildOrderGroup(
                         title: 'Pendentes',
                         statusCode: Consts.statusPlaced,

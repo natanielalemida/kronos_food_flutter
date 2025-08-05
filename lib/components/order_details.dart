@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
@@ -42,9 +43,10 @@ class _OrderDetailsState extends State<OrderDetails> {
   String versaoDoMeuSistema = '';
   bool _showDisputePanel = false;
   int? _selectedResponseOption;
-  int? _selected;
-  final TextEditingController _partialRefundController = TextEditingController();
-  final TextEditingController _rejectionReasonController = TextEditingController();
+  final TextEditingController _partialRefundController =
+      TextEditingController();
+  final TextEditingController _rejectionReasonController =
+      TextEditingController();
   late OrderRepository _orderRepository;
 
   @override
@@ -175,6 +177,8 @@ class _OrderDetailsState extends State<OrderDetails> {
     setState(() {
       _showDisputePanel = !_showDisputePanel;
       _selectedResponseOption = null;
+      _partialRefundController.clear();
+      _rejectionReasonController.clear();
     });
   }
 
@@ -205,6 +209,7 @@ class _OrderDetailsState extends State<OrderDetails> {
 
       final orderRepository = OrderRepository(Consts.baseUrl, token);
       String action;
+      String? body;
 
       switch (_selectedResponseOption) {
         case 1:
@@ -212,21 +217,25 @@ class _OrderDetailsState extends State<OrderDetails> {
               'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
           break;
         case 2:
-          action = 'propose_partial_refund';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/propose_partial_refund';
+          body = jsonEncode({
+            'amount': _partialRefundController.text.isNotEmpty
+                ? (double.parse(_partialRefundController.text) * 100)
+                : 0
+          });
           break;
         case 3:
           action =
               'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
+          body = jsonEncode({'reason': _rejectionReasonController.text});
           break;
         default:
           action =
               'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
       }
 
-      var result = await orderRepository.respondToDispute(
-        action,
-        _rejectionReasonController.text
-      );
+      var result = await orderRepository.respondToDispute(action, body);
 
       if (result) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,15 +245,15 @@ class _OrderDetailsState extends State<OrderDetails> {
           ),
         );
       }
+
       var finalPedido = widget.controller.selectedPedido.value;
-      finalPedido?.status = "CON";
-      if(_selectedResponseOption == 3) {
-        await widget.controller.savePedidoToCache(finalPedido!);
-        await widget.controller.getPedidos();
+      if (_selectedResponseOption == 3) {
+        var pedidosContoller = PedidosController();
+        finalPedido?.status = 'CON';
+        await pedidosContoller.alterarStatus(finalPedido);
       }
 
       _toggleDisputePanel();
-      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -646,7 +655,6 @@ class _OrderDetailsState extends State<OrderDetails> {
                               'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
                               style: TextStyle(color: Colors.grey),
                             ),
-
                             if (widget.controller.selectedPedido.value?.metadata
                                     ?.details.evidences?.isNotEmpty ??
                                 false) ...[
@@ -659,44 +667,60 @@ class _OrderDetailsState extends State<OrderDetails> {
                               SizedBox(
                                 height: 120,
                                 child: FutureBuilder<List<String>>(
-                                  future: Future.wait(widget.controller.selectedPedido
+                                  future: Future.wait(widget
+                                      .controller
+                                      .selectedPedido
                                       .value!
                                       .metadata!
                                       .details
                                       .evidences
-                                      .map((evidence) async => await _orderRepository.getImage(evidence.url) ?? '')),
+                                      .map((evidence) async =>
+                                          await _orderRepository
+                                              .getImage(evidence.url) ??
+                                          '')),
                                   builder: (context, snapshot) {
-                                    if (snapshot.connectionState == ConnectionState.waiting) {
-                                      return const Center(child: CircularProgressIndicator());
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                          child: CircularProgressIndicator());
                                     }
-                                    
+
                                     if (snapshot.hasError) {
-                                      return Center(child: Text('Erro ao carregar imagens'));
+                                      return Center(
+                                          child:
+                                              Text('Erro ao carregar imagens'));
                                     }
-                                    
+
                                     final images = snapshot.data ?? [];
-                                    
+
                                     return ListView.separated(
                                       scrollDirection: Axis.horizontal,
                                       itemCount: images.length,
-                                      separatorBuilder: (context, index) => const SizedBox(width: 8),
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(width: 8),
                                       itemBuilder: (context, index) {
                                         final imageBase64 = images[index];
                                         return GestureDetector(
-                                          onTap: () => _showFullScreenImage(imageBase64),
+                                          onTap: () =>
+                                              _showFullScreenImage(imageBase64),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                             child: Image.memory(
-                                              base64Decode(imageBase64.split(',').last),
+                                              base64Decode(
+                                                  imageBase64.split(',').last),
                                               width: 120,
                                               height: 120,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) {
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
                                                 return Container(
                                                   width: 120,
                                                   height: 120,
                                                   color: Colors.grey[200],
-                                                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                                                  child: const Icon(
+                                                      Icons.broken_image,
+                                                      color: Colors.grey),
                                                 );
                                               },
                                             ),
@@ -738,12 +762,12 @@ class _OrderDetailsState extends State<OrderDetails> {
                                   style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 8, top: 2),
+                                  padding:
+                                      const EdgeInsets.only(left: 8, top: 2),
                                   child: Text(
                                     'Motivo: ${item.reason}',
                                     style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12),
+                                        color: Colors.grey[600], fontSize: 12),
                                   ),
                                 ),
                               ],
@@ -762,8 +786,7 @@ class _OrderDetailsState extends State<OrderDetails> {
                         value: 1,
                         title:
                             'Aceitar reembolso de R\$ ${widget.controller.selectedPedido.value?.total.orderAmount}',
-                        subtitle:
-                            'Cliente receberá o valor total desse pedido',
+                        subtitle: 'Cliente receberá o valor total desse pedido',
                       ),
                       _radioCard(
                         value: 2,
@@ -869,11 +892,15 @@ class _OrderDetailsState extends State<OrderDetails> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(
-          color: _selected == value ? Colors.red : Colors.grey.shade300,
-          width: _selected == value ? 2 : 1,
+          color: _selectedResponseOption == value
+              ? Colors.red
+              : Colors.grey.shade300,
+          width: _selectedResponseOption == value ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(8),
-        color: _selected == value ? Colors.red.shade50 : Colors.white,
+        color: _selectedResponseOption == value
+            ? Colors.red.shade50
+            : Colors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,8 +909,8 @@ class _OrderDetailsState extends State<OrderDetails> {
             children: [
               Radio<int>(
                 value: value,
-                groupValue: _selected,
-                onChanged: (v) => setState(() => _selected = v),
+                groupValue: _selectedResponseOption,
+                onChanged: (v) => setState(() => _selectedResponseOption = v),
                 activeColor: Colors.red,
               ),
               const SizedBox(width: 8),
@@ -902,7 +929,7 @@ class _OrderDetailsState extends State<OrderDetails> {
               ),
             ],
           ),
-          if (child != null && _selected == value) ...[
+          if (child != null && _selectedResponseOption == value) ...[
             const SizedBox(height: 12),
             child,
           ],

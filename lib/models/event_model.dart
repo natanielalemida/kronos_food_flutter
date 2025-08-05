@@ -2,7 +2,7 @@ class EventModel {
   final String id;
   final String code;
   final String orderId;
-  final DateTime createdAt;
+  DateTime createdAt;
   final String merchantId;
   final String salesChannel;
   final Map<String, dynamic> metadata;

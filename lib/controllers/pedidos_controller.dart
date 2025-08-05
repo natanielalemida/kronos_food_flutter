@@ -223,8 +223,44 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
+  Future<void> alterarStatus(PedidoModel? pedido) async {
+  await _loadPreferences();
+  final String orderId = pedido!.id; 
+  var updatedPedido = await getPedidoDetails(orderId);
+  
+  if (updatedPedido != null) {
+    developer.log('Detalhes do pedido $orderId atualizados com sucesso');
+
+    final conEventIndex = updatedPedido.events.indexWhere(
+      (e) => e.code == 'CON' || e.code == 'CONCLUDED'
+    );
+
+    // Se encontrou o evento CON, move para o final
+    if (conEventIndex != -1) {
+      var conEvent = updatedPedido.events.removeAt(conEventIndex);
+      conEvent.createdAt = DateTime.now().add(Duration(hours: 9));
+      updatedPedido.events.add(conEvent);
+      updatedPedido.status = 'CON';
+      developer.log('Evento CON/CONCLUDED movido para o final da lista');
+    }
+
+
+
+    await savePedidoToCache(updatedPedido);
+
+
+    selectedPedido.value = updatedPedido;
+
+    selectedPedido.notifyListeners();
+
+    developer.log(
+        'Pedido $orderId com status ${updatedPedido.status} adicionado/atualizado no estado');
+    _needsNotification = true;
+  }
+}
+
   Future<void> handleNewEvent(EventModel event) async {
-    developer.log('Recebeu novo evento: ${event.code} - ${event.id}');
+    print('Recebeu novo evento: ${event.code} - ${event.id}');
     try {
       final String orderId = event.orderId;
       final String eventCode = event.code;
@@ -306,7 +342,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
               final sucess = await pollingRepository.acknowledgeEvents([
                 {"id": event.id}
               ]);
-              if (sucess) {
+              if (sucess && status == 'CON') {
                 await kronosRepository.sendConfirmar(updatedPedido);
               }
             }
@@ -343,6 +379,18 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
               await _playNotificationSound();
               await dispararNotificacaoNativaPowerShell(
                   head: 'Novo Pedido Recebido!',
+                  body: 'Pedido #${updatedPedido.displayId}',
+                  imagePath: path.absolute(
+                      'data/flutter_assets/assets/images/LOGO-KRONOS-food-icon-sync.png'),
+                  idPedido: updatedPedido.displayId);
+            }
+
+            if (status == Consts.statusDispute &&
+                !_notifiedPedidos.contains(orderId)) {
+              _notifiedPedidos.add(orderId);
+              await _playNotificationSound();
+              await dispararNotificacaoNativaPowerShell(
+                  head: 'Nova disputa recebida!',
                   body: 'Pedido #${updatedPedido.displayId}',
                   imagePath: path.absolute(
                       'data/flutter_assets/assets/images/LOGO-KRONOS-food-icon-sync.png'),
@@ -476,6 +524,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     } else if (upperStatus.contains('DDCR') ||
         upperStatus.contains('DECLINED')) {
       return 'DDCR';
+    } else if (upperStatus.contains('HSD')) {
+      return 'HSD';
     } else {
       developer.log("⚠️ Status desconhecido: $apiStatus, usando o padrão PLC");
       return Consts.statusPlaced;

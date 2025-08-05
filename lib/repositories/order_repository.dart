@@ -72,7 +72,7 @@ class OrderRepository {
     }
   }
 
-  Future<bool> respondToDispute(String action, String reason) async {
+  Future<bool> respondToDispute(String action, String? reason) async {
     final accessToken = await _authRepository.getValidAccessToken();
     if (accessToken == null) {
       throw Exception("Token de acesso inválido ou expirado");
@@ -85,11 +85,10 @@ class OrderRepository {
 
     var url = '$baseUrl/$action';
 
-    var body = jsonEncode({"reason": reason});
 
     try {
       await dio.post(url,
-          options: Options(headers: updatedHeaders), data: body);
+          options: Options(headers: updatedHeaders), data: reason);
 
       return true;
     } catch (e) {
