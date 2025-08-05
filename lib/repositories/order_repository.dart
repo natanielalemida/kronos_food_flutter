@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -71,7 +72,7 @@ class OrderRepository {
     }
   }
 
-   Future<bool> respondToDispute(String action, String reason) async {
+  Future<bool> respondToDispute(String action, String reason) async {
     final accessToken = await _authRepository.getValidAccessToken();
     if (accessToken == null) {
       throw Exception("Token de acesso inválido ou expirado");
@@ -88,8 +89,7 @@ class OrderRepository {
 
     try {
       await dio.post(url,
-          options: Options(
-              headers: updatedHeaders), data: body); 
+          options: Options(headers: updatedHeaders), data: body);
 
       return true;
     } catch (e) {
@@ -97,6 +97,36 @@ class OrderRepository {
       return false;
     }
   }
+
+  Future<String?> getImage(String url) async {
+  final accessToken = await _authRepository.getValidAccessToken();
+  if (accessToken == null) {
+    throw Exception("Token de acesso inválido ou expirado");
+  }
+
+  final updatedHeaders = {
+    "Authorization": "Bearer $accessToken",
+    "Accept": "*/*", 
+  };
+
+  try {
+    final response = await dio.get<List<int>>(
+      url,
+      options: Options(
+        headers: updatedHeaders,
+        responseType: ResponseType.bytes,
+      ),
+    );
+
+    final Uint8List bytes = Uint8List.fromList(response.data!);
+    final String base64Str = base64Encode(bytes);
+
+    return base64Str;
+  } catch (e) {
+    print("Erro ao obter imagem em Base64: $e");
+    return null;
+  }
+}
 
   // Rejeitar pedido
   Future<bool> rejectOrder(

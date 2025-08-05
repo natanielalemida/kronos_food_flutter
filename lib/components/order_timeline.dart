@@ -316,6 +316,15 @@ class OrderTimeline extends StatelessWidget {
             'status': Consts.statusCancelled,
             'active': true,
           });
+        } else if (e.code == Consts.statusDispute) {
+          timelineStates.add({
+            'title': 'Pedido em Disputa',
+            'time': e.createdAt,
+            'icon': Icons.bookmark_remove,
+            'color': Colors.yellow[600],
+            'status': Consts.statusCancelled,
+            'active': true,
+          });
         } else {
           // Caso não seja um status conhecido, adiciona um padrão
           timelineStates.add({

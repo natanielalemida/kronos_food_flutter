@@ -38,7 +38,9 @@ class AuthRepository {
 
     // Se o token não estiver expirado, retorne o token atual
     if (!isExpired) {
-      return await _preferencesService.getAccessToken();
+      var token = await _preferencesService.getAccessToken();
+      print(token);
+      return token;
     }
 
     // Se estiver expirado, atualize usando o refresh token

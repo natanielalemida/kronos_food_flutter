@@ -61,6 +61,7 @@ class Consts {
   static const String statusDispatched = 'DSP';
   static const String statusConcluded = 'CON';
   static const String statusCancelled = 'CAN';
+    static const String statusDispute = 'HSD';
   // static const String statusDriverDeclined = 'DDCR';
 
   // Event Group Constants
