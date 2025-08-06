@@ -792,28 +792,6 @@ class _OrderDetailsState extends State<OrderDetails> {
                             'Aceitar reembolso de R\$ ${widget.controller.selectedPedido.value?.total.orderAmount}',
                         subtitle: 'Cliente receberá o valor total desse pedido',
                       ),
-                      _radioCard(
-                        value: 2,
-                        title: 'Enviar proposta de reembolso',
-                        subtitle: 'Cliente pode aceitar ou recusar o valor',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                                'Qual o valor você gostaria de reembolsar?'),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _partialRefundController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                prefixText: 'R\$ ',
-                                hintText: 'Digite o valor (até R\$ 12,00)',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
 
                       _radioCard(
                         value: 3,
