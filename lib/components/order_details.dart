@@ -253,6 +253,10 @@ class _OrderDetailsState extends State<OrderDetails> {
         await pedidosContoller.alterarStatus(finalPedido);
       }
 
+      setState(() {
+        widget.controller.loadSavedPedidos();
+      });
+
       _toggleDisputePanel();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
