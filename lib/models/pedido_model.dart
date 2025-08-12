@@ -205,6 +205,7 @@ class PedidoModel {
       'AdditionalInfo': additionalInfo.toMap(),
       'Delivery': delivery.toMap(),
       'Merchant': merchant.toMap(),
+      'MetaData': metadata?.toMap(),
       'Customer': customer.toMap(),
       'Payments': payments.toMap(),
       'Benefits': benefits.map((x) => x.toMap()).toList(),
@@ -1889,11 +1890,11 @@ class Schedule {
 
   factory Schedule.fromKronos(Map<String, dynamic> json) {
     return Schedule(
-      deliveryDateTimeStart: json['deliveryDateTimeStart'] != null
-          ? DateTime.tryParse(json['deliveryDateTimeStart'])
+      deliveryDateTimeStart: json['DeliveryDateTimeStart'] != null
+          ? DateTime.tryParse(json['DeliveryDateTimeStart'])
           : null,
-      deliveryDateTimeEnd: json['deliveryDateTimeEnd'] != null
-          ? DateTime.tryParse(json['deliveryDateTimeEnd'])
+      deliveryDateTimeEnd: json['DeliveryDateTimeEnd'] != null
+          ? DateTime.tryParse(json['DeliveryDateTimeEnd'])
           : null,
     );
   }
@@ -2010,16 +2011,16 @@ class DisputeMetadata {
 
   Map<String, dynamic> toMap() {
     return {
-      'disputeId': disputeId,
-      'action': action,
-      'timeoutAction': timeoutAction,
-      'handshakeType': handshakeType,
-      'handshakeGroup': handshakeGroup,
-      'message': message,
-      'expiresAt': expiresAt.toIso8601String(),
-      'alternatives': alternatives.map((a) => a.toMap()).toList(),
-      'metadata': details.toMap(),
-      'createdAt': createdAt.toIso8601String(),
+      'DisputeId': disputeId,
+      'Action': action,
+      'TimeoutAction': timeoutAction,
+      'HandshakeType': handshakeType,
+      'HandshakeGroup': handshakeGroup,
+      'Message': message,
+      'ExpiresAt': expiresAt.toIso8601String(),
+      'Alternatives': alternatives.map((a) => a.toMap()).toList(),
+      'Metadata': details.toMap(),
+      'CreatedAt': createdAt.toIso8601String(),
     };
   }
 
