@@ -430,10 +430,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                               'CAN';
                         });
                       }
-
-                      widget.controller
-                          .cancelar(widget.controller.selectedPedido.value!);
-
+                      
                       debugPrint('✅ Notificação: $statusBefore');
 
                       if (statusBefore!.contains("PLC") ||
