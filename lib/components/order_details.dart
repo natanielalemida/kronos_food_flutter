@@ -43,10 +43,8 @@ class _OrderDetailsState extends State<OrderDetails> {
   String versaoDoMeuSistema = '';
   bool _showDisputePanel = false;
   int? _selectedResponseOption;
-  final TextEditingController _partialRefundController =
-      TextEditingController();
-  final TextEditingController _rejectionReasonController =
-      TextEditingController();
+  final TextEditingController _partialRefundController = TextEditingController();
+  final TextEditingController _rejectionReasonController = TextEditingController();
   late OrderRepository _orderRepository;
 
   @override
@@ -199,8 +197,16 @@ class _OrderDetailsState extends State<OrderDetails> {
     );
   }
 
+  bool _isTimeExpired(DateTime? expiresAt) {
+    if (expiresAt == null) return false;
+    return DateTime.now().toLocal().isAfter(expiresAt.toLocal());
+  }
+
   Future<void> _submitDisputeResponse() async {
-    if (_selectedResponseOption == null) return;
+    if (_selectedResponseOption == null || 
+        _isTimeExpired(widget.controller.selectedPedido.value?.metadata?.expiresAt)) {
+      return;
+    }
 
     try {
       final authRepository = AuthRepository();
@@ -212,27 +218,24 @@ class _OrderDetailsState extends State<OrderDetails> {
       String? body;
 
       switch (_selectedResponseOption) {
-        case 1:
-          action =
-              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
-          break;
-        case 2:
-          action =
-              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/propose_partial_refund';
+        case 1: // Aceitar reembolso
+          // Soma os valores dos itens com problemas
+          final totalAmount = calcularValorTotalReembolso(
+            widget.controller.selectedPedido.value?.metadata?.details.items,
+            widget.controller.selectedPedido.value?.metadata?.details.garnishItems,
+          );
+          
+          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
           body = jsonEncode({
-            'amount': _partialRefundController.text.isNotEmpty
-                ? (double.parse(_partialRefundController.text) * 100)
-                : 0
+            'amount': (totalAmount * 100).toInt() // Convertendo para centavos
           });
           break;
-        case 3:
-          action =
-              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
+        case 3: // Recusar
+          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
           body = jsonEncode({'reason': _rejectionReasonController.text});
           break;
         default:
-          action =
-              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
+          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
       }
 
       var result = await orderRepository.respondToDispute(action, body);
@@ -268,6 +271,27 @@ class _OrderDetailsState extends State<OrderDetails> {
     }
   }
 
+double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarnishItem>? garnishItems) {
+  double total = 0;
+
+  if (itens != null) {
+    total += itens.fold<double>(
+      0,
+      (sum, item) => sum + (double.parse(item.amount.value) / 100) * item.quantity,
+    );
+  }
+
+  if (garnishItems != null) {
+    total += garnishItems.fold<double>(
+      0,
+      (sum, item) => sum + (double.parse(item.amount.value) / 100) * item.quantity,
+    );
+  }
+
+  return total;
+}
+
+
   @override
   Widget build(BuildContext context) {
     if (widget.controller.selectedPedido.value == null) {
@@ -277,6 +301,7 @@ class _OrderDetailsState extends State<OrderDetails> {
     final status =
         widget.controller.selectedPedido.value?.status.toUpperCase() ?? '';
     final isHsd = status == 'HSD';
+    final isTimeExpired = _isTimeExpired(widget.controller.selectedPedido.value?.metadata?.expiresAt);
 
     return Stack(
       children: [
@@ -310,7 +335,7 @@ class _OrderDetailsState extends State<OrderDetails> {
                           ),
                         ),
                         ElevatedButton(
-                          onPressed: _toggleDisputePanel,
+                          onPressed: isTimeExpired ? null : _toggleDisputePanel,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.orange[700],
@@ -320,9 +345,9 @@ class _OrderDetailsState extends State<OrderDetails> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 8),
                           ),
-                          child: const Text(
-                            'Responder',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          child: Text(
+                            isTimeExpired ? 'Tempo esgotado' : 'Responder',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -625,243 +650,298 @@ class _OrderDetailsState extends State<OrderDetails> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        'Você tem ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" ? "até ${DateFormat('HH:mm').format(DateTime.parse(widget.controller.selectedPedido.value?.metadata?.expiresAt.toIso8601String() ?? '').toLocal())}" : "tempo limitado"} para responder',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange[800],
-                            fontWeight: FontWeight.w500),
-                      ),
+                      _buildCountdownTimer(widget.controller.selectedPedido
+                          .value?.metadata?.expiresAt),
                       const SizedBox(height: 2),
                       Text(
                         'Caso não responda, ${widget.controller.selectedPedido.value?.customer.name} pode ${widget.controller.selectedPedido.value?.metadata?.timeoutAction == "REJECT_CANCELLATION" ? "recusar o cancelamento automaticamente" : "recorrer ao iFood"}',
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
+                      
+                      if (isTimeExpired) 
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            border: Border.all(color: Colors.red),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'O tempo para responder expirou. Você não pode mais enviar uma resposta.',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Cliente solicitou ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"} do pedido',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                                'Motivo: ${widget.controller.selectedPedido.value?.metadata?.message}'),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            if (widget.controller.selectedPedido.value?.metadata
-                                    ?.details.evidences?.isNotEmpty ??
-                                false) ...[
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Evidências enviadas pelo cliente:',
+                      
+                      if (!isTimeExpired) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Cliente solicitou ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"} do pedido',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                height: 120,
-                                child: FutureBuilder<List<String>>(
-                                  future: Future.wait(widget
-                                      .controller
-                                      .selectedPedido
-                                      .value!
-                                      .metadata!
-                                      .details
-                                      .evidences
-                                      .map((evidence) async =>
-                                          await _orderRepository
-                                              .getImage(evidence.url) ??
-                                          '')),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return const Center(
-                                          child: CircularProgressIndicator());
-                                    }
-
-                                    if (snapshot.hasError) {
-                                      return Center(
-                                          child:
-                                              Text('Erro ao carregar imagens'));
-                                    }
-
-                                    final images = snapshot.data ?? [];
-
-                                    return ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: images.length,
-                                      separatorBuilder: (context, index) =>
-                                          const SizedBox(width: 8),
-                                      itemBuilder: (context, index) {
-                                        final imageBase64 = images[index];
-                                        return GestureDetector(
-                                          onTap: () =>
-                                              _showFullScreenImage(imageBase64),
-                                          child: ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            child: Image.memory(
-                                              base64Decode(
-                                                  imageBase64.split(',').last),
-                                              width: 120,
-                                              height: 120,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return Container(
-                                                  width: 120,
-                                                  height: 120,
-                                                  color: Colors.grey[200],
-                                                  child: const Icon(
-                                                      Icons.broken_image,
-                                                      color: Colors.grey),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
+                              const SizedBox(height: 6),
+                              Text(
+                                  'Motivo: ${widget.controller.selectedPedido.value?.metadata?.message}'),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
+                                style: TextStyle(color: Colors.grey),
                               ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Itens com problemas
-                      if (widget.controller.selectedPedido.value?.metadata
-                              ?.details.items.isNotEmpty ??
-                          false) ...[
-                        const Text(
-                          'Itens com problemas:',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        ...widget.controller.selectedPedido.value!.metadata!
-                            .details.items
-                            .map((item) {
-                          final itemValue =
-                              double.parse(item.amount.value) / 100;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '• ${item.quantity}x Item #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
+                              if (widget.controller.selectedPedido.value?.metadata
+                                      ?.details.evidences?.isNotEmpty ??
+                                  false) ...[
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Evidências enviadas pelo cliente:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.only(left: 8, top: 2),
-                                  child: Text(
-                                    'Motivo: ${item.reason}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600], fontSize: 12),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 120,
+                                  child: FutureBuilder<List<String>>(
+                                    future: Future.wait(widget
+                                        .controller
+                                        .selectedPedido
+                                        .value!
+                                        .metadata!
+                                        .details
+                                        .evidences
+                                        .map((evidence) async =>
+                                            await _orderRepository
+                                                .getImage(evidence.url) ??
+                                            '')),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Center(
+                                            child: CircularProgressIndicator());
+                                      }
+
+                                      if (snapshot.hasError) {
+                                        return Center(
+                                            child:
+                                                Text('Erro ao carregar imagens'));
+                                      }
+
+                                      final images = snapshot.data ?? [];
+
+                                      return ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: images.length,
+                                        separatorBuilder: (context, index) =>
+                                            const SizedBox(width: 8),
+                                        itemBuilder: (context, index) {
+                                          final imageBase64 = images[index];
+                                          return GestureDetector(
+                                            onTap: () =>
+                                                _showFullScreenImage(imageBase64),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.memory(
+                                                base64Decode(
+                                                    imageBase64.split(',').last),
+                                                width: 120,
+                                                height: 120,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (context, error, stackTrace) {
+                                                  return Container(
+                                                    width: 120,
+                                                    height: 120,
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(
+                                                        Icons.broken_image,
+                                                        color: Colors.grey),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 16),
-                      ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-                      // Título
-                      const Text('Escolha uma das opções pra responder:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-
-                      _radioCard(
-                        value: 1,
-                        title:
-                            'Aceitar reembolso de R\$ ${widget.controller.selectedPedido.value?.total.orderAmount}',
-                        subtitle: 'Cliente receberá o valor total desse pedido',
-                      ),
-
-                      _radioCard(
-                        value: 3,
-                        title:
-                            'Recusar ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}',
-                        subtitle:
-                            'Cliente ainda pode solicitar uma análise do iFood',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                'Conte para o cliente por qual motivo você vai recusar o ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}'),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _rejectionReasonController,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                hintText: 'Descreva o motivo*',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text.rich(
-                              TextSpan(
-                                text: 'Saiba como ',
-                                style: TextStyle(
-                                    color: Colors.blue[700], fontSize: 12),
-                                children: const [
-                                  TextSpan(
-                                    text:
-                                        'essa justificativa pode ajudar sua loja a prevenir cancelamentos.',
-                                    style: TextStyle(color: Colors.black87),
-                                  )
+                        // Itens com problemas
+                        if (widget.controller.selectedPedido.value?.metadata
+                                ?.details.items.isNotEmpty ??
+                            false) ...[
+                          const Text(
+                            'Itens com problemas:',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ...widget.controller.selectedPedido.value!.metadata!
+                              .details.items
+                              .map((item) {
+                            final itemValue =
+                                double.parse(item.amount.value) / 100;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ${item.quantity}x Item #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
+                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(left: 8, top: 2),
+                                    child: Text(
+                                      'Motivo: ${item.reason}',
+                                      style: TextStyle(
+                                          color: Colors.grey[600], fontSize: 12),
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
 
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _selectedResponseOption != null
-                              ? _submitDisputeResponse
-                              : null,
-                          icon: const Icon(Icons.send),
-                          label: const Text('Enviar resposta'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange[700],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            textStyle: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        // Itens de guarnição com problemas
+                        if (widget.controller.selectedPedido.value?.metadata
+                                ?.details.garnishItems.isNotEmpty ??
+                            false) ...[
+                          const Text(
+                            'Itens de guarnição com problemas:',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ...widget.controller.selectedPedido.value!.metadata!
+                              .details.garnishItems
+                              .map((item) {
+                            final itemValue =
+                                double.parse(item.amount.value) / 100;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ${item.quantity}x Guarnição #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
+                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(left: 8, top: 2),
+                                    child: Text(
+                                      'Motivo: ${item.reason}',
+                                      style: TextStyle(
+                                          color: Colors.grey[600], fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Título
+                        const Text('Escolha uma das opções pra responder:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+
+                        _radioCard(
+                          value: 1,
+                          title:
+                              'Aceitar reembolso de R\$ ${calcularValorTotalReembolso(widget.controller.selectedPedido.value?.metadata?.details.items, widget.controller.selectedPedido.value?.metadata?.details.garnishItems).toStringAsFixed(2)}',
+                          subtitle: 'Cliente receberá o valor total desse pedido',
+                        ),
+                        _radioCard(
+                          value: 3,
+                          title:
+                              'Recusar ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}',
+                          subtitle:
+                              'Cliente ainda pode solicitar uma análise do iFood',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  'Conte para o cliente por qual motivo você vai recusar o ${widget.controller.selectedPedido.value?.metadata?.action == "CANCELLATION" ? "cancelamento" : "reembolso"}'),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: _rejectionReasonController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  hintText: 'Descreva o motivo*',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text.rich(
+                                TextSpan(
+                                  text: 'Saiba como ',
+                                  style: TextStyle(
+                                      color: Colors.blue[700], fontSize: 12),
+                                  children: const [
+                                    TextSpan(
+                                      text:
+                                          'essa justificativa pode ajudar sua loja a prevenir cancelamentos.',
+                                      style: TextStyle(color: Colors.black87),
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: !isTimeExpired && _selectedResponseOption != null
+                                ? _submitDisputeResponse
+                                : null,
+                            icon: const Icon(Icons.send),
+                            label: isTimeExpired
+                                ? const Text('Tempo esgotado')
+                                : const Text('Enviar resposta'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isTimeExpired
+                                  ? Colors.grey
+                                  : Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              textStyle: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
               ),
             ),
           ),
-      ],
-    );
-  }
+        ],
+      );
+    }
 
   Widget _radioCard({
     required int value,
@@ -923,5 +1003,35 @@ class _OrderDetailsState extends State<OrderDetails> {
   String _formatTime(DateTime dateTime) {
     dateTime = dateTime.toLocal();
     return "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+  }
+
+  String _formatRemainingTime(DateTime? expiresAt) {
+    if (expiresAt == null) return "tempo limitado";
+
+    final now = DateTime.now().toLocal();
+    final difference = expiresAt.toLocal().difference(now);
+
+    if (difference.isNegative) return "tempo esgotado";
+
+    final minutes = difference.inMinutes;
+    final seconds = difference.inSeconds.remainder(60);
+
+    return "$minutes minutos e ${seconds.toString().padLeft(2, '0')} segundos";
+  }
+
+  Widget _buildCountdownTimer(DateTime? expiresAt) {
+    return StreamBuilder(
+      stream: Stream.periodic(const Duration(seconds: 1)),
+      builder: (context, snapshot) {
+        return Text(
+          _formatRemainingTime(expiresAt),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: _isTimeExpired(expiresAt) ? Colors.red : Colors.orange,
+          ),
+        );
+      },
+    );
   }
 }

@@ -385,9 +385,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
                   idPedido: updatedPedido.displayId);
             }
 
-            if (status == Consts.statusDispute &&
-                !_notifiedPedidos.contains(orderId)) {
-              _notifiedPedidos.add(orderId);
+            if (status == Consts.statusDispute) {
               await _playNotificationSound();
               await dispararNotificacaoNativaPowerShell(
                   head: 'Nova disputa recebida!',

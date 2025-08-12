@@ -26,7 +26,6 @@ class PedidoModel {
   Schedule schedule;
   DisputeMetadata? metadata;
   List<EventModel> events = [];
-  // Definir um setter personalizado para o status que garante consistência
   set statusCode(String statusCode) {
     if (statusCode.toUpperCase().contains('CAN') ||
         statusCode.toUpperCase().contains('CANCEL')) {

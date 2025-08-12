@@ -440,6 +440,16 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                           statusBefore.contains("PLACED")) {
                         return true;
                       }
+
+                      var service = KronosRepository();
+                      service
+                          .cancelarPedido(
+                              widget.controller.selectedPedido.value?.id,
+                              reason['description'])
+                          .then((value) {
+                        return true;
+                      });
+
                       return true;
                     } else {
                       return false;
