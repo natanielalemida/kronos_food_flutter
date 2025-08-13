@@ -92,7 +92,7 @@ class KronosRepository {
     final url = '$serverIp/delivery/pedido/despachar';
     var body = {
       "IdPedidos": [pedido.id],
-      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String(),
+      "DataHora": DateTime.now().toIso8601String(),
       "CodigoEntregador": Codigo
     };
     final response = await dio
@@ -140,7 +140,7 @@ class KronosRepository {
     var body = {
       "IdPedidos": [pedido.id],
       "CodigoCaixaMovimento": caixa?['Codigo'],
-      "DataHora": pedido.delivery.deliveryDateTime.toIso8601String()
+      "DataHora": DateTime.now().toIso8601String()
     };
     final response = await dio
         .put(

@@ -237,7 +237,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       // Se encontrou o evento CON, move para o final
       if (conEventIndex != -1) {
         var conEvent = updatedPedido.events.removeAt(conEventIndex);
-        conEvent.createdAt = DateTime.now().add(Duration(hours: 9));
+        conEvent.createdAt = DateTime.now();
         updatedPedido.events.add(conEvent);
         updatedPedido.status = 'CON';
         developer.log('Evento CON/CONCLUDED movido para o final da lista');
