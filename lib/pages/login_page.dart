@@ -18,6 +18,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final preferencesService = PreferencesService();
   final _formKey = GlobalKey<FormState>();
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _dataHoraController = TextEditingController();
@@ -25,9 +26,12 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usuarioController = TextEditingController();
   final TextEditingController _supAnteriorController = TextEditingController();
   final TextEditingController _supAdicionarController = TextEditingController();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  final FocusNode _usernameFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
   final FocusNode _keyboardFocusNode = FocusNode();
 
+  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _serverConfigured = false;
@@ -38,6 +42,11 @@ class _LoginPageState extends State<LoginPage> {
     super.initState();
     _verificarConfiguracaoServidor();
     _supAdicionarController.addListener(_formatarValorMonetario);
+
+    // foco automático no campo usuário
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _usernameFocusNode.requestFocus();
+    });
   }
 
   void _handleKeyPress(RawKeyEvent event) {
@@ -45,23 +54,14 @@ class _LoginPageState extends State<LoginPage> {
       final logicalKey = event.logicalKey;
 
       if (logicalKey == LogicalKeyboardKey.enter) {
-        if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Atenção'),
-              content: const Text('Usuário e senha devem ser preenchidos!'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                )
-              ],
-            ),
-          );
-        } else {
+        if (_usernameFocusNode.hasFocus) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+      _passwordFocusNode.requestFocus();
+    });
+        } else if (_passwordFocusNode.hasFocus) {
           _login();
         }
+
       }
 
       if (logicalKey == LogicalKeyboardKey.escape) {
@@ -218,7 +218,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return RawKeyboardListener(
@@ -295,6 +294,12 @@ class _LoginPageState extends State<LoginPage> {
                           children: [
                             TextFormField(
                               controller: _usernameController,
+                              focusNode: _usernameFocusNode,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) {
+                                FocusScope.of(context)
+                                    .requestFocus(_passwordFocusNode);
+                              },
                               decoration: InputDecoration(
                                 labelText: 'Usuário',
                                 prefixIcon: const Icon(Icons.person_outline),
@@ -311,7 +316,10 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: _passwordController,
+                              focusNode: _passwordFocusNode,
                               obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _login(),
                               decoration: InputDecoration(
                                 labelText: 'Senha',
                                 prefixIcon: const Icon(Icons.lock_outline),
@@ -407,6 +415,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     _keyboardFocusNode.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
     _supAdicionarController.removeListener(_formatarValorMonetario);
     _usernameController.dispose();
     _passwordController.dispose();

@@ -134,7 +134,7 @@ class _OrderDetailsState extends State<OrderDetails> {
     final font = await PdfGoogleFonts.robotoRegular();
     final fontBold = await PdfGoogleFonts.robotoBold();
 
-     final discounts = extractDiscountDetails(pedido.benefits);
+    final discounts = extractDiscountDetails(pedido.benefits);
 
     pdf.addPage(
       pw.Page(
@@ -259,7 +259,7 @@ class _OrderDetailsState extends State<OrderDetails> {
               ...discounts.map((discount) {
                 return _receiptLineString(
                   'Desconto',
-                  '${discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
+                  '${discount['name'] == 'MERCHANT' ? 'LOJA': discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
                   font: font,
                 );
               }),

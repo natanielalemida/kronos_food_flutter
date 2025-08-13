@@ -263,12 +263,6 @@ class _PedidosPageState extends State<PedidosPage> {
                               },
                               orderTimming: controller.orderTimming,
                               pedidosMap: controller.pedidosMap,
-                              isExpanded: _isExpanded,
-                              onExpansionChanged: (value, statusCode) {
-                                setState(() {
-                                  _isExpanded[statusCode] = value;
-                                });
-                              },
                               onOrderSelected: (order, status) {
                                 controller.selectedPedido.value = order;
                               },

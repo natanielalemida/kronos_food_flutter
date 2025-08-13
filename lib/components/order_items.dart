@@ -9,8 +9,26 @@ class OrderItems extends StatelessWidget {
     required this.order,
   });
 
+  List<Map<String, dynamic>> extractDiscountDetails(List<Benefit> benefits) {
+    final List<Map<String, dynamic>> discountDetails = [];
+    for (final benefit in benefits) {
+      for (final sponsorship in benefit.sponsorshipValues) {
+        if (sponsorship.value > 0) {
+          discountDetails.add({
+            'name': sponsorship.name,
+            'value': sponsorship.value,
+            'description': sponsorship.description,
+          });
+        }
+      }
+    }
+    return discountDetails;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final discounts = extractDiscountDetails(order.benefits);
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -30,13 +48,6 @@ class OrderItems extends StatelessWidget {
             ],
           ),
           const Divider(),
-          // ListView.builder(
-          //   itemCount: order.items.length,
-          //   itemBuilder: (context, index) {
-          //     final item = order.items[index];
-          //     return _buildItemRow(item);
-          //   },
-          // ),
           ...order.items.map((item) => _buildItemRow(item)),
           const Divider(),
           Padding(
@@ -71,16 +82,30 @@ class OrderItems extends StatelessWidget {
               ),
             ),
           if (order.total.benefits > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Descontos:"),
-                  Text("-R\$ ${order.total.benefits.toStringAsFixed(2)}"),
-                ],
-              ),
-            ),
+            ...discounts.map((discount) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Desconto - ${discount['name'] == 'MERCHANT' ? 'LOJA' : discount['name']}",
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      "-R\$ ${discount['value'].toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           const Divider(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
