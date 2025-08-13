@@ -224,40 +224,36 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   }
 
   Future<void> alterarStatus(PedidoModel? pedido) async {
-  await _loadPreferences();
-  final String orderId = pedido!.id; 
-  var updatedPedido = await getPedidoDetails(orderId);
-  
-  if (updatedPedido != null) {
-    developer.log('Detalhes do pedido $orderId atualizados com sucesso');
+    await _loadPreferences();
+    final String orderId = pedido!.id;
+    var updatedPedido = await getPedidoDetails(orderId);
 
-    final conEventIndex = updatedPedido.events.indexWhere(
-      (e) => e.code == 'CON' || e.code == 'CONCLUDED'
-    );
+    if (updatedPedido != null) {
+      developer.log('Detalhes do pedido $orderId atualizados com sucesso');
 
-    // Se encontrou o evento CON, move para o final
-    if (conEventIndex != -1) {
-      var conEvent = updatedPedido.events.removeAt(conEventIndex);
-      conEvent.createdAt = DateTime.now().add(Duration(hours: 9));
-      updatedPedido.events.add(conEvent);
-      updatedPedido.status = 'CON';
-      developer.log('Evento CON/CONCLUDED movido para o final da lista');
+      final conEventIndex = updatedPedido.events
+          .indexWhere((e) => e.code == 'CON' || e.code == 'CONCLUDED');
+
+      // Se encontrou o evento CON, move para o final
+      if (conEventIndex != -1) {
+        var conEvent = updatedPedido.events.removeAt(conEventIndex);
+        conEvent.createdAt = DateTime.now().add(Duration(hours: 9));
+        updatedPedido.events.add(conEvent);
+        updatedPedido.status = 'CON';
+        developer.log('Evento CON/CONCLUDED movido para o final da lista');
+      }
+
+      await savePedidoToCache(updatedPedido);
+
+      selectedPedido.value = updatedPedido;
+
+      selectedPedido.notifyListeners();
+
+      developer.log(
+          'Pedido $orderId com status ${updatedPedido.status} adicionado/atualizado no estado');
+      _needsNotification = true;
     }
-
-
-
-    await savePedidoToCache(updatedPedido);
-
-
-    selectedPedido.value = updatedPedido;
-
-    selectedPedido.notifyListeners();
-
-    developer.log(
-        'Pedido $orderId com status ${updatedPedido.status} adicionado/atualizado no estado');
-    _needsNotification = true;
   }
-}
 
   Future<void> handleNewEvent(EventModel event) async {
     print('Recebeu novo evento: ${event.code} - ${event.id}');
@@ -464,6 +460,12 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         String status = pedido.status.isNotEmpty
             ? mapApiStatusToCode(pedido.status)
             : _determineStatus(pedido);
+
+        if (pedido.displayId.isEmpty) {
+            var pedidoResult = await orderRepository.getPedidoDetails(pedido.id);
+          pedido = pedidoResult;
+          await savePedidoToCache(pedido);
+        }
 
         if (pedido.status.isEmpty) {
           pedido.status = status;

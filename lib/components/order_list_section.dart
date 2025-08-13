@@ -5,9 +5,11 @@ import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 
-class OrderListSection extends StatefulWidget {
+class OrderListSection extends StatelessWidget {
   final ValueNotifier<OrderTimming> orderTimming;
   final Map<String, List<PedidoModel>> pedidosMap;
+  final Map<String, bool> isExpanded;
+  final Function(bool, String) onExpansionChanged;
   final Function(PedidoModel, String) onOrderSelected;
   final void Function() onTabChanged;
   final String? selectedOrderId;
@@ -17,41 +19,11 @@ class OrderListSection extends StatefulWidget {
     required this.onTabChanged,
     required this.orderTimming,
     required this.pedidosMap,
+    required this.isExpanded,
+    required this.onExpansionChanged,
     required this.onOrderSelected,
     this.selectedOrderId,
   });
-
-  @override
-  State<OrderListSection> createState() => _OrderListSectionState();
-}
-
-class _OrderListSectionState extends State<OrderListSection> {
-  late Map<String, bool> isExpanded;
-
-  @override
-  void initState() {
-    super.initState();
-    isExpanded = {
-      Consts.statusDispute: false,
-      Consts.statusPlaced: false,
-      Consts.statusConfirmed: false,
-      Consts.statusDispatched: false,
-      Consts.statusConcluded: false,
-      Consts.statusCancelled: false,
-    };
-  }
-
-  void _handleExpansionChanged(bool expanded, String statusCode) {
-    setState(() {
-      // Fecha todos os grupos
-      isExpanded.updateAll((key, value) => false);
-
-      // Abre o selecionado se for expandir
-      if (expanded) {
-        isExpanded[statusCode] = true;
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,22 +39,20 @@ class _OrderListSectionState extends State<OrderListSection> {
         ],
       ),
       child: ListenableBuilder(
-        listenable: widget.orderTimming,
+        listenable: orderTimming,
         builder: (context, child) {
-          final totalScheduledOrders = widget.pedidosMap.values.fold<int>(
-            0,
-            (sum, list) =>
-                sum + list.where((p) => p.orderTiming == "SCHEDULED").length,
-          );
+          final totalScheduledOrders = pedidosMap.values.fold<int>(
+              0,
+              (sum, list) =>
+                  sum + list.where((p) => p.orderTiming == "SCHEDULED").length);
 
-          final totalImmediateOrders = widget.pedidosMap.values.fold<int>(
-            0,
-            (sum, list) =>
-                sum + list.where((p) => p.orderTiming == "IMMEDIATE").length,
-          );
+          final totalImmediateOrders = pedidosMap.values.fold<int>(
+              0,
+              (sum, list) =>
+                  sum + list.where((p) => p.orderTiming == "IMMEDIATE").length);
 
-          final scheduledOrders = widget.pedidosMap.values
-              .fold<List<PedidoModel>>([], (list, element) {
+          final scheduledOrders =
+              pedidosMap.values.fold<List<PedidoModel>>([], (list, element) {
             list.addAll(element.where((e) => e.orderTiming == "SCHEDULED"));
             return list;
           });
@@ -90,6 +60,7 @@ class _OrderListSectionState extends State<OrderListSection> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Cabeçalho com título
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -109,7 +80,7 @@ class _OrderListSectionState extends State<OrderListSection> {
                 ),
               ),
 
-              // Filtros Agora / Agendados
+              // Filtros de pedidos (Agora/Agendados)
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -119,13 +90,11 @@ class _OrderListSectionState extends State<OrderListSection> {
                       child: _buildFilterButton(
                         label: 'Agora',
                         count: totalImmediateOrders,
-                        isActive: widget.orderTimming.value ==
-                            OrderTimming.immediate,
+                        isActive: orderTimming.value == OrderTimming.immediate,
                         onTap: () {
-                          if (widget.orderTimming.value !=
-                              OrderTimming.immediate) {
-                            widget.onTabChanged();
-                            widget.orderTimming.value = OrderTimming.immediate;
+                          if (orderTimming.value != OrderTimming.immediate) {
+                            onTabChanged();
+                            orderTimming.value = OrderTimming.immediate;
                           }
                         },
                       ),
@@ -135,13 +104,11 @@ class _OrderListSectionState extends State<OrderListSection> {
                       child: _buildFilterButton(
                         label: 'Agendados',
                         count: totalScheduledOrders,
-                        isActive: widget.orderTimming.value ==
-                            OrderTimming.scheduled,
+                        isActive: orderTimming.value == OrderTimming.scheduled,
                         onTap: () {
-                          if (widget.orderTimming.value !=
-                              OrderTimming.scheduled) {
-                            widget.onTabChanged();
-                            widget.orderTimming.value = OrderTimming.scheduled;
+                          if (orderTimming.value != OrderTimming.scheduled) {
+                            onTabChanged();
+                            orderTimming.value = OrderTimming.scheduled;
                           }
                         },
                       ),
@@ -152,23 +119,19 @@ class _OrderListSectionState extends State<OrderListSection> {
 
               const Divider(height: 1, thickness: 1),
 
+              // Lista de grupos de pedidos
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   children: [
-                    if (widget.orderTimming.value ==
-                        OrderTimming.scheduled) ...[
+                    if (orderTimming.value == OrderTimming.scheduled) ...[
                       ...scheduledOrders.map((order) {
-                        final isSelected =
-                            order.id == widget.selectedOrderId;
+                        final isSelected = order.id == selectedOrderId;
 
                         return Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () => widget.onOrderSelected(
-                              order,
-                              "SCHEDULED",
-                            ),
+                            onTap: () => onOrderSelected(order, "SCHEDULED"),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               padding: const EdgeInsets.symmetric(
@@ -190,6 +153,7 @@ class _OrderListSectionState extends State<OrderListSection> {
                               ),
                               child: Row(
                                 children: [
+                                  // Número e horário do pedido
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -224,11 +188,9 @@ class _OrderListSectionState extends State<OrderListSection> {
                                           ],
                                         ),
                                         const SizedBox(height: 4),
-                                        if (order.schedule
-                                                    .deliveryDateTimeStart !=
+                                        if (order.schedule.deliveryDateTimeStart !=
                                                 null &&
-                                            order.schedule
-                                                    .deliveryDateTimeEnd !=
+                                            order.schedule.deliveryDateTimeEnd !=
                                                 null) ...[
                                           Row(
                                             children: [
@@ -251,6 +213,8 @@ class _OrderListSectionState extends State<OrderListSection> {
                                       ],
                                     ),
                                   ),
+
+                                  // Valor do pedido
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
@@ -293,24 +257,25 @@ class _OrderListSectionState extends State<OrderListSection> {
                         );
                       })
                     ] else ...[
-                      if ((widget.pedidosMap[Consts.statusDispute]?.length ??
-                              0) >
-                          0)
-                        _buildOrderGroup(
-                          title: 'Urgencias',
-                          statusCode: Consts.statusDispute,
-                          color: const Color.fromARGB(255, 214, 180, 28),
-                          icon: Icons.fast_forward,
-                        ),
-                      if ((widget.pedidosMap[Consts.statusPlaced]?.length ??
-                              0) >
-                          0)
-                        _buildOrderGroup(
-                          title: 'Pendentes',
-                          statusCode: Consts.statusPlaced,
-                          color: Colors.orange,
-                          icon: Icons.access_time,
-                        ),
+                      // Urgencias e Pendentes só aparecem se tiverem pedidos
+                      ...[
+                        if (pedidosMap[Consts.statusDispute]?.isNotEmpty ?? false)
+                          _buildOrderGroup(
+                            title: 'Urgencias',
+                            statusCode: Consts.statusDispute,
+                            color: const Color.fromARGB(255, 214, 180, 28),
+                            icon: Icons.fast_forward,
+                          ),
+                        if (pedidosMap[Consts.statusPlaced]?.isNotEmpty ?? false)
+                          _buildOrderGroup(
+                            title: 'Pendentes',
+                            statusCode: Consts.statusPlaced,
+                            color: Colors.orange,
+                            icon: Icons.access_time,
+                          ),
+                      ],
+
+                      // Outros grupos sempre aparecem
                       _buildOrderGroup(
                         title: 'Confirmados',
                         statusCode: Consts.statusConfirmed,
@@ -346,6 +311,7 @@ class _OrderListSectionState extends State<OrderListSection> {
     );
   }
 
+  // Método auxiliar para construir os grupos de pedidos
   Widget _buildOrderGroup({
     required String title,
     required String statusCode,
@@ -353,20 +319,20 @@ class _OrderListSectionState extends State<OrderListSection> {
     required IconData icon,
   }) {
     return OrderGroup(
-      orderTimming: widget.orderTimming.value,
+      orderTimming: orderTimming.value,
       title: title,
-      orders: widget.pedidosMap[statusCode] ?? [],
+      orders: pedidosMap[statusCode] ?? [],
       color: color,
       statusCode: statusCode,
-      isExpanded: isExpanded[statusCode] ?? false,
-      onExpansionChanged: (value) =>
-          _handleExpansionChanged(value, statusCode),
-      onOrderSelected: widget.onOrderSelected,
-      selectedOrderId: widget.selectedOrderId,
+      isExpanded: isExpanded[statusCode] ?? true,
+      onExpansionChanged: (value) => onExpansionChanged(value, statusCode),
+      onOrderSelected: onOrderSelected,
+      selectedOrderId: selectedOrderId,
       icon: icon,
     );
   }
 
+  // Widget para os botões de filtro
   Widget _buildFilterButton({
     required String label,
     required int count,
