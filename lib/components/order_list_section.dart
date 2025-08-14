@@ -44,16 +44,16 @@ class OrderListSection extends StatelessWidget {
           final totalScheduledOrders = pedidosMap.values.fold<int>(
               0,
               (sum, list) =>
-                  sum + list.where((p) => p.orderTiming == "SCHEDULED").length);
+                  sum + list.where((p) => p.orderTiming == "SCHEDULED" && p.status == 'PLC').length);
 
           final totalImmediateOrders = pedidosMap.values.fold<int>(
               0,
               (sum, list) =>
-                  sum + list.where((p) => p.orderTiming == "IMMEDIATE").length);
+                  sum + list.where((p) => p.orderTiming == "IMMEDIATE" || p.status == 'HSD').length);
 
           final scheduledOrders =
               pedidosMap.values.fold<List<PedidoModel>>([], (list, element) {
-            list.addAll(element.where((e) => e.orderTiming == "SCHEDULED"));
+            list.addAll(element.where((e) => e.orderTiming == "SCHEDULED" && e.status == 'PLC'));
             return list;
           });
 
@@ -311,7 +311,6 @@ class OrderListSection extends StatelessWidget {
     );
   }
 
-  // Método auxiliar para construir os grupos de pedidos
   Widget _buildOrderGroup({
     required String title,
     required String statusCode,

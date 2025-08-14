@@ -68,14 +68,14 @@ class _OrderGroupState extends State<OrderGroup> {
 
   @override
   Widget build(BuildContext context) {
-    // Filtrar pedidos com base no tipo de agendamento selecionado
-    var filteredOrders = widget.orders
-        .where((order) =>
-            order.orderTiming ==
-            (widget.orderTimming == OrderTimming.immediate
-                ? "IMMEDIATE"
-                : "SCHEDULED"))
-        .toList();
+    var filteredOrders = widget.orders.where((order) {
+      if (widget.orderTimming == OrderTimming.immediate) {
+        return order.orderTiming == "IMMEDIATE" ||
+            (order.orderTiming == "SCHEDULED" && order.status != "PLC");
+      } else {
+        return order.orderTiming == "SCHEDULED" && order.status == "PLC";
+      }
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -192,7 +192,8 @@ class _OrderGroupState extends State<OrderGroup> {
                       return Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () => widget.onOrderSelected(order, widget.statusCode),
+                          onTap: () =>
+                              widget.onOrderSelected(order, widget.statusCode),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.symmetric(
@@ -222,8 +223,7 @@ class _OrderGroupState extends State<OrderGroup> {
                                     children: [
                                       Column(
                                         children: [
-                                          if (order.orderType ==
-                                              "TAKEOUT") ...[
+                                          if (order.orderType == "TAKEOUT") ...[
                                             Text(
                                               "#${order.displayId} - RETIRADA",
                                               style: TextStyle(
@@ -267,7 +267,8 @@ class _OrderGroupState extends State<OrderGroup> {
                                             ),
                                           ],
                                         ),
-                                      ] else if (widget.statusCode == "CFM") ...[
+                                      ] else if (widget.statusCode ==
+                                          "CFM") ...[
                                         Row(
                                           children: [
                                             Icon(
@@ -285,7 +286,8 @@ class _OrderGroupState extends State<OrderGroup> {
                                             ),
                                           ],
                                         ),
-                                      ] else if (widget.statusCode == "DSP") ...[
+                                      ] else if (widget.statusCode ==
+                                          "DSP") ...[
                                         Row(
                                           children: [
                                             Icon(
@@ -310,8 +312,7 @@ class _OrderGroupState extends State<OrderGroup> {
 
                                 // Valor do pedido
                                 Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -320,8 +321,7 @@ class _OrderGroupState extends State<OrderGroup> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: Colors.grey[100],
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
                                         "R\$ ${order.total.orderAmount.toStringAsFixed(2)}",
@@ -333,8 +333,7 @@ class _OrderGroupState extends State<OrderGroup> {
                                     ),
                                     if (order.items.isNotEmpty)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.only(top: 4),
                                         child: Text(
                                           "${order.items.length} ${order.items.length == 1 ? 'item' : 'itens'}",
                                           style: TextStyle(
