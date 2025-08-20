@@ -50,6 +50,7 @@ dependencies:
   win_toast: ^0.3.1
   collection: ^1.19.1
   path: ^1.9.1
+  windows_single_instance: ^1.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

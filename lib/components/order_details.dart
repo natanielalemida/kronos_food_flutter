@@ -43,8 +43,10 @@ class _OrderDetailsState extends State<OrderDetails> {
   String versaoDoMeuSistema = '';
   bool _showDisputePanel = false;
   int? _selectedResponseOption;
-  final TextEditingController _partialRefundController = TextEditingController();
-  final TextEditingController _rejectionReasonController = TextEditingController();
+  final TextEditingController _partialRefundController =
+      TextEditingController();
+  final TextEditingController _rejectionReasonController =
+      TextEditingController();
   late OrderRepository _orderRepository;
 
   @override
@@ -67,7 +69,7 @@ class _OrderDetailsState extends State<OrderDetails> {
     });
   }
 
-    String _formatPaymentMethod(String method) {
+  String _formatPaymentMethod(String method) {
     switch (method.toUpperCase()) {
       case 'CREDIT':
         return 'Cartão de Crédito';
@@ -86,29 +88,27 @@ class _OrderDetailsState extends State<OrderDetails> {
     }
   }
 
-     pw.Widget _receiptLine(String label, double value,
-        {required pw.Font font}) {
-      return pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
-          pw.Text('R\$ ${value.toStringAsFixed(2)}',
-              style: pw.TextStyle(font: font, fontSize: 8)),
-        ],
-      );
-    }
+  pw.Widget _receiptLine(String label, double value, {required pw.Font font}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
+        pw.Text('R\$ ${value.toStringAsFixed(2)}',
+            style: pw.TextStyle(font: font, fontSize: 8)),
+      ],
+    );
+  }
 
-    pw.Widget _receiptLineString(String label, String value,
-        {required pw.Font font}) {
-      return pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
-          pw.Text(value, style: pw.TextStyle(font: font, fontSize: 8)),
-        ],
-      );
-    }
-
+  pw.Widget _receiptLineString(String label, String value,
+      {required pw.Font font}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
+        pw.Text(value, style: pw.TextStyle(font: font, fontSize: 8)),
+      ],
+    );
+  }
 
   List<Map<String, dynamic>> extractDiscountDetails(List<Benefit> benefits) {
     final List<Map<String, dynamic>> discountDetails = [];
@@ -259,7 +259,7 @@ class _OrderDetailsState extends State<OrderDetails> {
               ...discounts.map((discount) {
                 return _receiptLineString(
                   'Desconto',
-                  '${discount['name'] == 'MERCHANT' ? 'LOJA': discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
+                  '${discount['name'] == 'MERCHANT' ? 'LOJA' : discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
                   font: font,
                 );
               }),
@@ -437,8 +437,9 @@ class _OrderDetailsState extends State<OrderDetails> {
   }
 
   Future<void> _submitDisputeResponse() async {
-    if (_selectedResponseOption == null || 
-        _isTimeExpired(widget.controller.selectedPedido.value?.metadata?.expiresAt)) {
+    if (_selectedResponseOption == null ||
+        _isTimeExpired(
+            widget.controller.selectedPedido.value?.metadata?.expiresAt)) {
       return;
     }
 
@@ -456,20 +457,24 @@ class _OrderDetailsState extends State<OrderDetails> {
           // Soma os valores dos itens com problemas
           final totalAmount = calcularValorTotalReembolso(
             widget.controller.selectedPedido.value?.metadata?.details.items,
-            widget.controller.selectedPedido.value?.metadata?.details.garnishItems,
+            widget.controller.selectedPedido.value?.metadata?.details
+                .garnishItems,
           );
-          
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
+
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
           body = jsonEncode({
             'amount': (totalAmount * 100).toInt() // Convertendo para centavos
           });
           break;
         case 3: // Recusar
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/reject';
           body = jsonEncode({'reason': _rejectionReasonController.text});
           break;
         default:
-          action = 'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
+          action =
+              'disputes/${widget.controller.selectedPedido.value!.metadata?.disputeId}/accept';
       }
 
       var result = await orderRepository.respondToDispute(action, body);
@@ -505,26 +510,28 @@ class _OrderDetailsState extends State<OrderDetails> {
     }
   }
 
-double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarnishItem>? garnishItems) {
-  double total = 0;
+  double calcularValorTotalReembolso(
+      List<DisputedItem>? itens, List<DisputedGarnishItem>? garnishItems) {
+    double total = 0;
 
-  if (itens != null) {
-    total += itens.fold<double>(
-      0,
-      (sum, item) => sum + (double.parse(item.amount.value) / 100) * item.quantity,
-    );
+    if (itens != null) {
+      total += itens.fold<double>(
+        0,
+        (sum, item) =>
+            sum + (double.parse(item.amount.value) / 100) * item.quantity,
+      );
+    }
+
+    if (garnishItems != null) {
+      total += garnishItems.fold<double>(
+        0,
+        (sum, item) =>
+            sum + (double.parse(item.amount.value) / 100) * item.quantity,
+      );
+    }
+
+    return total;
   }
-
-  if (garnishItems != null) {
-    total += garnishItems.fold<double>(
-      0,
-      (sum, item) => sum + (double.parse(item.amount.value) / 100) * item.quantity,
-    );
-  }
-
-  return total;
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -532,10 +539,16 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
       return const Center(child: Text("Nenhum pedido selecionado"));
     }
 
+    final valor = calcularValorTotalReembolso(
+      widget.controller.selectedPedido.value?.metadata?.details.items,
+      widget.controller.selectedPedido.value?.metadata?.details.garnishItems,
+    );
+
     final status =
         widget.controller.selectedPedido.value?.status.toUpperCase() ?? '';
     final isHsd = status == 'HSD';
-    final isTimeExpired = _isTimeExpired(widget.controller.selectedPedido.value?.metadata?.expiresAt);
+    final isTimeExpired = _isTimeExpired(
+        widget.controller.selectedPedido.value?.metadata?.expiresAt);
 
     return Stack(
       children: [
@@ -892,8 +905,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       const SizedBox(height: 12),
-                      
-                      if (isTimeExpired) 
+
+                      if (isTimeExpired)
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -906,7 +919,7 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                             style: TextStyle(color: Colors.red),
                           ),
                         ),
-                      
+
                       if (!isTimeExpired) ...[
                         Container(
                           decoration: BoxDecoration(
@@ -929,8 +942,14 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                 'Tipo: ${widget.controller.selectedPedido.value?.metadata?.handshakeType?.replaceAll("_", " ").toLowerCase()}',
                                 style: TextStyle(color: Colors.grey),
                               ),
-                              if (widget.controller.selectedPedido.value?.metadata
-                                      ?.details.evidences?.isNotEmpty ??
+                              if (widget
+                                      .controller
+                                      .selectedPedido
+                                      .value
+                                      ?.metadata
+                                      ?.details
+                                      .evidences
+                                      ?.isNotEmpty ??
                                   false) ...[
                                 const SizedBox(height: 12),
                                 const Text(
@@ -961,8 +980,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
 
                                       if (snapshot.hasError) {
                                         return Center(
-                                            child:
-                                                Text('Erro ao carregar imagens'));
+                                            child: Text(
+                                                'Erro ao carregar imagens'));
                                       }
 
                                       final images = snapshot.data ?? [];
@@ -975,19 +994,20 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                         itemBuilder: (context, index) {
                                           final imageBase64 = images[index];
                                           return GestureDetector(
-                                            onTap: () =>
-                                                _showFullScreenImage(imageBase64),
+                                            onTap: () => _showFullScreenImage(
+                                                imageBase64),
                                             child: ClipRRect(
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                               child: Image.memory(
-                                                base64Decode(
-                                                    imageBase64.split(',').last),
+                                                base64Decode(imageBase64
+                                                    .split(',')
+                                                    .last),
                                                 width: 120,
                                                 height: 120,
                                                 fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (context, error, stackTrace) {
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
                                                   return Container(
                                                     width: 120,
                                                     height: 120,
@@ -1033,7 +1053,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                 children: [
                                   Text(
                                     '• ${item.quantity}x Item #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
-                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                   Padding(
                                     padding:
@@ -1041,7 +1062,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                     child: Text(
                                       'Motivo: ${item.reason}',
                                       style: TextStyle(
-                                          color: Colors.grey[600], fontSize: 12),
+                                          color: Colors.grey[600],
+                                          fontSize: 12),
                                     ),
                                   ),
                                 ],
@@ -1073,7 +1095,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                 children: [
                                   Text(
                                     '• ${item.quantity}x Guarnição #${item.index} (R\$${itemValue.toStringAsFixed(2)})',
-                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                   Padding(
                                     padding:
@@ -1081,7 +1104,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                                     child: Text(
                                       'Motivo: ${item.reason}',
                                       style: TextStyle(
-                                          color: Colors.grey[600], fontSize: 12),
+                                          color: Colors.grey[600],
+                                          fontSize: 12),
                                     ),
                                   ),
                                 ],
@@ -1098,9 +1122,12 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
 
                         _radioCard(
                           value: 1,
-                          title:
-                              'Aceitar reembolso de R\$ ${calcularValorTotalReembolso(widget.controller.selectedPedido.value?.metadata?.details.items, widget.controller.selectedPedido.value?.metadata?.details.garnishItems).toStringAsFixed(2)}',
-                          subtitle: 'Cliente receberá o valor total desse pedido',
+                          title: valor == 0
+                              ? 'Aceitar reembolso'
+                              : 'Aceitar reembolso de R\$ ${valor.toStringAsFixed(2)}',
+                          subtitle: valor == 0
+                              ? ''
+                              : 'Cliente receberá o valor total desse pedido',
                         ),
                         _radioCard(
                           value: 3,
@@ -1145,7 +1172,8 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: !isTimeExpired && _selectedResponseOption != null
+                            onPressed: !isTimeExpired &&
+                                    _selectedResponseOption != null
                                 ? _submitDisputeResponse
                                 : null,
                             icon: const Icon(Icons.send),
@@ -1173,9 +1201,9 @@ double calcularValorTotalReembolso(List<DisputedItem>? itens, List<DisputedGarni
               ),
             ),
           ),
-        ],
-      );
-    }
+      ],
+    );
+  }
 
   Widget _radioCard({
     required int value,

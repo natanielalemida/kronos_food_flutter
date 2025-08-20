@@ -264,7 +264,7 @@ class Delivery {
   final DateTime deliveryDateTime;
   final DeliveryAddress deliveryAddress;
   final String pickupCode;
-  final String nomeEntregador;
+  String nomeEntregador;
   final String observations; 
 
   Delivery({

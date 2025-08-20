@@ -44,7 +44,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
   }
 
   Future<void> _performAction(
-      Future<bool> Function() action, String actionName, int? Codigo) async {
+      Future<bool> Function() action, String actionName, int? Codigo, String? NomeEntregador) async {
     if (_isLoading) return;
 
     developer.log("action: $actionName");
@@ -89,9 +89,14 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
             await _addEventForStatus('CAN', null);
           }
 
+          if (NomeEntregador != null) {
+          widget.controller.selectedPedido.value?.delivery.nomeEntregador =  NomeEntregador;
+          }
+ 
           final currentPedido = widget.controller.selectedPedido.value;
           widget.controller.selectedPedido.value = null;
           widget.controller.selectedPedido.value = currentPedido;
+          await widget.controller.atualizarPedido(currentPedido!);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,10 +245,14 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           "Entregador selecionado: ${selectedPerson['Referencia']} (ID: ${selectedPerson['Codigo']})",
         );
 
+        pedido.delivery.nomeEntregador = selectedPerson['Referencia'];
+        widget.controller.selectedPedido.value?.delivery.nomeEntregador = selectedPerson['Referencia'];
+
         await _performAction(
           () => _actionsService.dispatchOrder(pedido.id),
           'Despachar Pedido',
           selectedPerson['Codigo'],
+          selectedPerson['Referencia']
         );
       }
     });
@@ -433,10 +442,10 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                       
                       debugPrint('✅ Notificação: $statusBefore');
 
-                      if (statusBefore!.contains("PLC") ||
-                          statusBefore.contains("PLACED")) {
-                        return true;
-                      }
+                      // if (statusBefore!.contains("PLC") ||
+                      //     statusBefore.contains("PLACED")) {
+                      //   return true;
+                      // }
 
                       var service = KronosRepository();
                       service
@@ -453,7 +462,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                     }
                   }),
               'Cancelamento',
-              null);
+              null, null);
         }
       }
     } catch (e) {
@@ -551,7 +560,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                     widget.controller.selectedPedido.value!);
               }
               return sucess;
-            }, 'Confirmação', null);
+            }, 'Confirmação', null, null);
           },
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green, foregroundColor: Colors.white),
@@ -573,7 +582,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
               await _performAction(
                   () => _actionsService.dispatchOrder(pedido?.id ?? ''),
                   'Despachar Pedido',
-                  null);
+                  null, null);
             }
           },
           style: ElevatedButton.styleFrom(
@@ -586,7 +595,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     if (!status.contains("CON") &&
         !status.contains("CONCLUDED") &&
         !status.contains("CAN") &&
-        !status.contains("CANCELLED")) {
+        !status.contains("CANCELLED") &&
+        !status.contains("HSD")) {
       buttons.add(
         ElevatedButton(
           onPressed: _showCancellationDialog,

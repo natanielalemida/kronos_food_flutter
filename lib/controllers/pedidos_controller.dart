@@ -111,6 +111,37 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
+  Future<void> atualizarPedido(PedidoModel pedido) async {
+  try {
+    // 1. Determinar o status correto
+    String status = mapApiStatusToCode(
+      pedido.status.isNotEmpty ? pedido.status : Consts.statusPlaced,
+    );
+
+    // 2. Remover o pedido de qualquer status anterior
+    for (var statusKey in pedidosMap.keys.toList()) {
+      pedidosMap[statusKey]?.removeWhere((p) => p.id == pedido.id);
+    }
+
+    // 3. Adicionar no status certo
+    if (pedidosMap.containsKey(status)) {
+      pedidosMap[status]!.add(pedido);
+    } else {
+      pedidosMap[status] = [pedido];
+    }
+
+    notifyListeners();
+
+    developer.log(
+      "🔄 Pedido ${pedido.id} atualizado no pedidosMap (Status: $status)",
+    );
+  } catch (e) {
+    developer.log("❌ Erro ao atualizar pedido: $e");
+    throw Exception("Falha ao atualizar pedido");
+  }
+}
+
+
   Future<void> dispararNotificacaoNativaPowerShell({
     required String head,
     required String body,
