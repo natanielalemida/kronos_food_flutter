@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
+import 'package:kronos_food/utils/ifood_event_utils.dart';
 
 class OrderGroup extends StatefulWidget {
   final OrderTimming orderTimming;
@@ -69,11 +71,13 @@ class _OrderGroupState extends State<OrderGroup> {
   @override
   Widget build(BuildContext context) {
     var filteredOrders = widget.orders.where((order) {
+      final isScheduledPending = order.orderTiming == "SCHEDULED" &&
+          order.status == Consts.statusPlaced;
+
       if (widget.orderTimming == OrderTimming.immediate) {
-        return order.orderTiming == "IMMEDIATE" ||
-            (order.orderTiming == "SCHEDULED" && order.status != "PLC");
+        return !isScheduledPending;
       } else {
-        return order.orderTiming == "SCHEDULED" && order.status == "PLC";
+        return isScheduledPending;
       }
     }).toList();
 
@@ -287,6 +291,25 @@ class _OrderGroupState extends State<OrderGroup> {
                                           ],
                                         ),
                                       ] else if (widget.statusCode ==
+                                          "RTP") ...[
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.shopping_bag_outlined,
+                                              size: 12,
+                                              color: Colors.teal[600],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _readySubtitle(order),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.teal[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else if (widget.statusCode ==
                                           "DSP") ...[
                                         Row(
                                           children: [
@@ -365,5 +388,25 @@ class _OrderGroupState extends State<OrderGroup> {
   String _formatTime(DateTime dateTime) {
     final localDateTime = dateTime.toLocal();
     return "${localDateTime.hour.toString().padLeft(2, '0')}:${localDateTime.minute.toString().padLeft(2, '0')}";
+  }
+
+  String _readySubtitle(PedidoModel order) {
+    final logisticEvents = order.events
+        .where((e) =>
+            IfoodEventUtils.isWaitingDriverEvent(e.code) ||
+            IfoodEventUtils.isReadyEvent(e.code))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (logisticEvents.isNotEmpty) {
+      return IfoodEventUtils.eventTitle(
+        logisticEvents.first.code,
+        deliveredBy: order.delivery.deliveredBy,
+        orderType: order.orderType,
+      );
+    }
+
+    return IfoodEventUtils.readyLabel(
+        order.delivery.deliveredBy, order.orderType);
   }
 }

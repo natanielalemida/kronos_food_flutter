@@ -1,6 +1,7 @@
 class EventModel {
   final String id;
   final String code;
+  final String fullCode;
   final String orderId;
   DateTime createdAt;
   final String merchantId;
@@ -10,6 +11,7 @@ class EventModel {
   EventModel({
     required this.id,
     required this.code,
+    this.fullCode = '',
     required this.orderId,
     required this.createdAt,
     required this.salesChannel,
@@ -21,6 +23,7 @@ class EventModel {
     return EventModel(
       id: json['id'] ?? '',
       code: json['code'] ?? '',
+      fullCode: json['fullCode'] ?? '',
       orderId: json['orderId'] ?? '',
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
@@ -35,6 +38,7 @@ class EventModel {
     return EventModel(
       id: json['Id'] ?? '',
       code: json['Code'] ?? '',
+      fullCode: json['FullCode'] ?? '',
       orderId: json['OrderId'] ?? '',
       createdAt: json['CreatedAt'] != null
           ? DateTime.parse(json['CreatedAt'])
@@ -49,6 +53,7 @@ class EventModel {
     return {
       'Id': id,
       'Code': code,
+      'FullCode': fullCode,
       'OrderId': orderId,
       'CreatedAt': createdAt.toString(),
       'Metadata': metadata,

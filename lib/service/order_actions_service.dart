@@ -1,15 +1,26 @@
-import 'dart:convert';
 // import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
+import 'package:kronos_food/models/delivery_tracking_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
-import 'package:kronos_food/repositories/order_repository.dart';
 
 class OrderActionsService {
   final dio = Dio();
   static const String _baseUrl = "${Consts.baseUrl}/order/v1.0";
   final AuthRepository _authRepository;
   OrderActionsService(this._authRepository);
+
+  String _formatDioError(DioException error, String action) {
+    final statusCode = error.response?.statusCode;
+    final data = error.response?.data;
+    final details = data == null ? error.message : data.toString();
+
+    if (statusCode == null) {
+      return 'Falha ao $action: $details';
+    }
+
+    return 'Falha ao $action (HTTP $statusCode): $details';
+  }
 
   /// Obtém os headers com o token de autenticação
   Future<Map<String, String>> _getHeaders() async {
@@ -39,7 +50,8 @@ class OrderActionsService {
       ),
     );
 
-    return response.statusMessage == "Accepted";
+    final statusCode = response.statusCode ?? 0;
+    return statusCode >= 200 && statusCode < 300;
   }
 
   /// Inicia a preparação de um pedido
@@ -54,7 +66,8 @@ class OrderActionsService {
       ),
     );
 
-    return response.statusCode == 202;
+    final statusCode = response.statusCode ?? 0;
+    return statusCode >= 200 && statusCode < 300;
   }
 
   /// Marca um pedido como pronto para retirada
@@ -69,7 +82,8 @@ class OrderActionsService {
       ),
     );
 
-    return response.statusCode == 202;
+    final statusCode = response.statusCode ?? 0;
+    return statusCode >= 200 && statusCode < 300;
   }
 
   /// Despacha um pedido
@@ -82,9 +96,67 @@ class OrderActionsService {
       options: Options(
         headers: await _getHeaders(),
       ),
+      data: const {
+        'deliveredBy': 'MERCHANT',
+      },
     );
 
-    return response.statusMessage == 'Accepted';
+    return response.statusCode == 202;
+  }
+
+  Future<DeliveryTrackingModel> getDeliveryTracking(String orderId) async {
+    final url = '$_baseUrl/orders/$orderId/tracking';
+
+    final response = await dio.get(
+      url,
+      options: Options(
+        headers: await _getHeaders(),
+      ),
+    );
+
+    return DeliveryTrackingModel.fromJson(response.data);
+  }
+
+  Future<bool> validatePickupCode(String orderId, String code) async {
+    final url = '$_baseUrl/orders/$orderId/validatePickupCode';
+
+    final response = await dio.post(
+      url,
+      options: Options(
+        headers: await _getHeaders(),
+      ),
+      data: {
+        'code': code,
+      },
+    );
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['valid'] == true;
+    }
+
+    return response.statusCode == 200;
+  }
+
+  Future<bool> verifyDeliveryCode(String orderId, String code) async {
+    final url = '$_baseUrl/orders/$orderId/verifyDeliveryCode';
+
+    final response = await dio.post(
+      url,
+      options: Options(
+        headers: await _getHeaders(),
+      ),
+      data: {
+        'code': code,
+      },
+    );
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['valid'] == true;
+    }
+
+    return response.statusCode == 200;
   }
 
   /// Obtém os motivos de cancelamento disponíveis para um pedido
@@ -101,9 +173,34 @@ class OrderActionsService {
       ),
     );
 
+    if (response.statusCode == 204) {
+      return [];
+    }
+
     if (response.statusCode == 200) {
-      final List<dynamic> data = response.data;
-      return data.map((item) => item as Map<String, dynamic>).toList();
+      final data = response.data;
+      final List<dynamic> reasons;
+
+      if (data is List) {
+        reasons = data;
+      } else if (data is Map && data['reasons'] is List) {
+        reasons = data['reasons'] as List;
+      } else {
+        return [];
+      }
+
+      return reasons
+          .whereType<Map>()
+          .map((item) {
+            final reason = Map<String, dynamic>.from(item);
+            reason['cancelCodeId'] ??= reason['cancellationCode'] ??
+                reason['code'] ??
+                reason['id'];
+            reason['description'] ??= reason['name'] ?? reason['reason'] ?? '';
+            return reason;
+          })
+          .where((reason) => reason['cancelCodeId'] != null)
+          .toList();
     } else {
       throw Exception(
           'Falha ao obter motivos de cancelamento: ${response.statusCode}');
@@ -117,14 +214,15 @@ class OrderActionsService {
   Future<bool> requestCancellation(String orderId, String cancellationCode,
       {String? cancellationDescription}) async {
     final url = '$_baseUrl/orders/$orderId/requestCancellation';
-    //coloque o content type para application/json
+    final normalizedCode = int.tryParse(cancellationCode) ?? cancellationCode;
 
     final body = {
-      'cancellationCode': cancellationCode,
-      'reason': cancellationDescription ?? '',
+      'cancellationCode': normalizedCode,
+      'reason': cancellationDescription?.trim().isNotEmpty == true
+          ? cancellationDescription!.trim()
+          : 'Cancelamento solicitado pelo restaurante',
     };
     var headers = await _getHeaders();
-    var encodedBody = jsonEncode(body);
 
     final response = await dio.post(
       url,
@@ -133,7 +231,9 @@ class OrderActionsService {
         contentType: 'application/json',
       ),
       data: body,
-    );
+    ).onError<DioException>((error, stackTrace) {
+      throw Exception(_formatDioError(error, 'solicitar cancelamento'));
+    });
 
     return response.statusCode == 202;
   }

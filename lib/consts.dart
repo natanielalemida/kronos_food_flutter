@@ -10,15 +10,16 @@ class Consts {
       "https://merchant-api.ifood.com.br/events/v1.0";
 
   // Authentication
-  // static const String clientId = "7ff46aa1-3276-4fc4-8f7e-61458c72eb50";
-  // static const String clientSecret =
-  //     "101ft61m1624i2ssnoc33gphah3rr3mj4n9n5fjrglwrtu7drfp5piug3rr5uyk92qgan01tn3qwhvmg7q7h7yj8scfik45jic55";
-  //Authentication - Prod
-  static const String clientId = "30c1f323-c4a1-4c96-9066-3cf5e9519781";
+  static const String clientId = String.fromEnvironment('IFOOD_CLIENT_ID');
   static const String clientSecret =
-      "ent3fguwdx2k7kub3xywdw4pxd21g2lfiyj3i13pnnk32scooa5s3pexlcp17i9xafid5ytyzq7ee52j5pwiwvfa4hmje87up8u";
-  // static const String username = "seu_usuario_ifood";
-  // static const String password = "sua_senha_ifood";
+      String.fromEnvironment('IFOOD_CLIENT_SECRET');
+  static const String merchantId = String.fromEnvironment('IFOOD_MERCHANT_ID');
+  static const String merchantName = String.fromEnvironment(
+    'IFOOD_MERCHANT_NAME',
+    defaultValue: 'Loja iFood',
+  );
+  static const String ifoodWidgetId =
+      String.fromEnvironment('IFOOD_WIDGET_ID');
 
   // HTTP Headers
   static const Map<String, String> jsonHeaders = {
@@ -30,16 +31,21 @@ class Consts {
   // static const String pedidosIdsKey = 'pedidos_ids';
   // static const String lastCleanupKey = 'last_cleanup';
   // static const String tokenExpirationKey = 'expiration_time';
-  static const String accessTokenKey = 'access_token';
-  static const String refreshTokenKey = 'refresh_token';
+  static const String accessTokenKey = 'access_token_prod';
+  static const String refreshTokenKey = 'refresh_token_prod';
   static const String kronosTokenKey = 'kronos_token';
   static const String codeUser = 'code_user';
-  static const String configKey = 'config';
-  static const String expirationTimeKey = 'expiration_time';
+  static const String configKey = 'config_prod';
+  static const String expirationTimeKey = 'expiration_time_prod';
   static const String serverIpKey = 'server_ip';
   static const String codCaixa = 'cod_caixa';
   static const String companyCodeKey = 'company_code';
   static const String terminalCodeKey = 'terminal_code';
+  static const String ifoodMerchantIdKey = 'ifood_merchant_id_prod';
+  static const String ifoodWidgetIdKey = 'ifood_widget_id_prod';
+  static const String kanbanModeKey = 'kanban_mode';
+  static const String autoAcceptKey = 'auto_accept_prod';
+  static const String autoPrintKey = 'auto_print_prod';
   static const String usernameKey = 'username';
   static const String passwordKey = 'password';
 
@@ -58,10 +64,11 @@ class Consts {
   // Order Status Codes
   static const String statusPlaced = 'PLC';
   static const String statusConfirmed = 'CFM';
+  static const String statusReadyToPickup = 'RTP';
   static const String statusDispatched = 'DSP';
   static const String statusConcluded = 'CON';
   static const String statusCancelled = 'CAN';
-    static const String statusDispute = 'HSD';
+  static const String statusDispute = 'HSD';
   // static const String statusDriverDeclined = 'DDCR';
 
   // Event Group Constants

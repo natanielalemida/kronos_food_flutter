@@ -35,6 +35,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # http: ^1.4.0
   dio: ^5.8.0+1
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
   shared_preferences: ^2.3.5
   url_launcher: ^6.3.1
   pdf: ^3.11.3
@@ -44,13 +46,12 @@ dependencies:
   package_info_plus: ^8.3.0
   window_manager: ^0.5.0
   audioplayers: ^6.5.0
-  flutter_local_notifications: ^19.3.0
   ffi: ^2.1.4
   win32: ^5.13.0
-  win_toast: ^0.3.1
   collection: ^1.19.1
   path: ^1.9.1
   windows_single_instance: ^1.0.1
+  webview_windows: ^0.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:kronos_food/components/order_delivery_info.dart';
+import 'package:kronos_food/components/order_ifood_tracking.dart';
 import 'package:kronos_food/components/order_items.dart';
 import 'package:kronos_food/components/order_payment_info.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,6 +17,10 @@ import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/repositories/order_repository.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/utils/ifood_event_utils.dart';
+
+const double _receiptLeftOffset = 0;
+const double _receiptRightGuard = 4.0 * PdfPageFormat.mm;
 
 class OrderDetails extends StatefulWidget {
   final PedidosController controller;
@@ -54,6 +58,32 @@ class _OrderDetailsState extends State<OrderDetails> {
     super.initState();
     _loadVersion();
     _initializeRepository();
+    widget.controller.selectedPedido.addListener(_handleSelectedPedidoChanged);
+  }
+
+  @override
+  void didUpdateWidget(OrderDetails oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.selectedPedido
+          .removeListener(_handleSelectedPedidoChanged);
+      widget.controller.selectedPedido
+          .addListener(_handleSelectedPedidoChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.selectedPedido
+        .removeListener(_handleSelectedPedidoChanged);
+    _partialRefundController.dispose();
+    _rejectionReasonController.dispose();
+    super.dispose();
+  }
+
+  void _handleSelectedPedidoChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _initializeRepository() async {
@@ -140,84 +170,74 @@ class _OrderDetailsState extends State<OrderDetails> {
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
         build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Center(
-                child: pw.Text(
-                  '**** PEDIDO #${pedido.displayId} ****',
-                  style: pw.TextStyle(font: fontBold, fontSize: 11),
-                ),
-              ),
-              pw.Center(
-                child: pw.Text(
-                  pedido.orderType == "TAKEOUT" ? 'RETIRADA' : pedido.orderType,
-                  style: pw.TextStyle(font: font, fontSize: 9),
-                ),
-              ),
-              pw.SizedBox(height: 2),
-              pw.Text(pedido.merchant.name,
-                  style: pw.TextStyle(font: font, fontSize: 9)),
-              pw.Text(
-                'Data: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.createdAt)}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-              pw.Text(
-                'Entrega: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.delivery.deliveryDateTime)}',
-                style: pw.TextStyle(font: font, fontSize: 8),
-              ),
-              pw.Text('Cliente: ${pedido.customer.name}',
-                  style: pw.TextStyle(font: font, fontSize: 8)),
-              pw.Text('Tel: ${pedido.customer.phone.number}',
-                  style: pw.TextStyle(font: font, fontSize: 8)),
+          return pw.Padding(
+            padding: const pw.EdgeInsets.only(
+              left: _receiptLeftOffset,
+              right: _receiptRightGuard,
+            ),
+            child: pw.SizedBox(
+              width: PdfPageFormat.roll80.width -
+                  _receiptLeftOffset -
+                  _receiptRightGuard,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Center(
+                    child: pw.Text(
+                      '**** PEDIDO #${pedido.displayId} ****',
+                      style: pw.TextStyle(font: fontBold, fontSize: 11),
+                    ),
+                  ),
+                  pw.Center(
+                    child: pw.Text(
+                      pedido.orderType == "TAKEOUT"
+                          ? 'RETIRADA'
+                          : pedido.orderType,
+                      style: pw.TextStyle(font: font, fontSize: 9),
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(pedido.merchant.name,
+                      style: pw.TextStyle(font: font, fontSize: 9)),
+                  pw.Text(
+                    'Data: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.createdAt)}',
+                    style: pw.TextStyle(font: font, fontSize: 8),
+                  ),
+                  pw.Text(
+                    'Entrega: ${DateFormat('dd/MM/yyyy HH:mm').format(pedido.delivery.deliveryDateTime)}',
+                    style: pw.TextStyle(font: font, fontSize: 8),
+                  ),
+                  pw.Text('Cliente: ${pedido.customer.name}',
+                      style: pw.TextStyle(font: font, fontSize: 8)),
+                  pw.Text('Tel: ${pedido.customer.phone.number}',
+                      style: pw.TextStyle(font: font, fontSize: 8)),
+                  if (pedido.delivery.pickupCode.trim().isNotEmpty)
+                    pw.Text(
+                      'Codigo de coleta: ${pedido.delivery.pickupCode.trim()}',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9),
+                    ),
 
-              pw.Divider(thickness: 0.8),
-              pw.Center(
-                child: pw.Text(
-                  'ITENS DO PEDIDO',
-                  style: pw.TextStyle(font: fontBold, fontSize: 9),
-                ),
-              ),
-              pw.SizedBox(height: 2),
-              ...pedido.items.map((item) {
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Row(
+                  pw.Divider(thickness: 0.8),
+                  pw.Center(
+                    child: pw.Text(
+                      'ITENS DO PEDIDO',
+                      style: pw.TextStyle(font: fontBold, fontSize: 9),
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  ...pedido.items.map((item) {
+                    return pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Expanded(
-                          flex: 7,
-                          child: pw.Text(
-                            '${item.quantity}x ${item.name.toUpperCase()}',
-                            style: pw.TextStyle(font: fontBold, fontSize: 8),
-                            softWrap: true,
-                          ),
-                        ),
-                        pw.SizedBox(width: 5),
-                        pw.Expanded(
-                          flex: 3,
-                          child: pw.Align(
-                            alignment: pw.Alignment.topRight,
-                            child: pw.Text(
-                              'R\$ ${item.unitPrice.toStringAsFixed(2)}',
-                              style: pw.TextStyle(font: font, fontSize: 8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    ...item.options.map((opt) {
-                      return pw.Padding(
-                        padding: const pw.EdgeInsets.only(left: 5),
-                        child: pw.Row(
+                        pw.Row(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Expanded(
                               flex: 7,
                               child: pw.Text(
-                                '${opt.quantity}x ${opt.name}',
-                                style: pw.TextStyle(font: font, fontSize: 7),
+                                '${item.quantity}x ${item.name.toUpperCase()}',
+                                style:
+                                    pw.TextStyle(font: fontBold, fontSize: 8),
                                 softWrap: true,
                               ),
                             ),
@@ -227,125 +247,158 @@ class _OrderDetailsState extends State<OrderDetails> {
                               child: pw.Align(
                                 alignment: pw.Alignment.topRight,
                                 child: pw.Text(
-                                  '+R\$ ${opt.addition.toStringAsFixed(2)}',
-                                  style: pw.TextStyle(font: font, fontSize: 7),
+                                  'R\$ ${item.unitPrice.toStringAsFixed(2)}',
+                                  style: pw.TextStyle(font: font, fontSize: 8),
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        ...item.options.map((opt) {
+                          return pw.Padding(
+                            padding: const pw.EdgeInsets.only(left: 5),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Expanded(
+                                  flex: 7,
+                                  child: pw.Text(
+                                    '${opt.quantity}x ${opt.name}',
+                                    style:
+                                        pw.TextStyle(font: font, fontSize: 7),
+                                    softWrap: true,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 5),
+                                pw.Expanded(
+                                  flex: 3,
+                                  child: pw.Align(
+                                    alignment: pw.Alignment.topRight,
+                                    child: pw.Text(
+                                      '+R\$ ${opt.addition.toStringAsFixed(2)}',
+                                      style:
+                                          pw.TextStyle(font: font, fontSize: 7),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        if (item.observations != null)
+                          pw.Text(
+                            'Obs: ${item.observations}',
+                            style: pw.TextStyle(font: font, fontSize: 7),
+                          ),
+                        pw.Divider(thickness: 0.8),
+                      ],
+                    );
+                  }).toList(),
+
+                  // TOTAL
+                  pw.Center(
+                      child: pw.Text('TOTAL',
+                          style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                  _receiptLine('Itens', pedido.total.subTotal, font: font),
+                  _receiptLine('Taxa Entrega', pedido.total.deliveryFee,
+                      font: font),
+                  _receiptLine('Taxa Adicional', pedido.total.additionalFees,
+                      font: font),
+
+                  ...discounts.map((discount) {
+                    return _receiptLineString(
+                      'Desconto',
+                      '${discount['name'] == 'MERCHANT' ? 'LOJA' : discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
+                      font: font,
+                    );
+                  }),
+                  _receiptLine('TOTAL', pedido.total.orderAmount,
+                      font: fontBold),
+                  pw.Divider(thickness: 0.8),
+
+                  pw.Center(
+                      child: pw.Text('PAGAMENTO',
+                          style: pw.TextStyle(font: fontBold, fontSize: 9))),
+
+                  if (pedido.payments.prepaid > 0)
+                    _receiptLine('Total Online', pedido.payments.prepaid,
+                        font: font),
+
+                  if (pedido.payments.pending > 0) ...[
+                    pw.Text('A RECEBER NA ENTREGA',
+                        style: pw.TextStyle(font: font, fontSize: 8)),
+                    ...pedido.payments.methods
+                        .where((p) => p.prepaid == false)
+                        .map((p) {
+                      final methodLabel = _formatPaymentMethod(p.method);
+                      return pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('- $methodLabel',
+                              style: pw.TextStyle(font: font, fontSize: 8)),
+                          pw.Text('R\$ ${p.value.toStringAsFixed(2)}',
+                              style: pw.TextStyle(font: font, fontSize: 8)),
+                        ],
                       );
                     }),
-                    if (item.observations != null)
-                      pw.Text(
-                        'Obs: ${item.observations}',
-                        style: pw.TextStyle(font: font, fontSize: 7),
-                      ),
-                    pw.Divider(thickness: 0.8),
                   ],
-                );
-              }).toList(),
 
-              // TOTAL
-              pw.Center(
-                  child: pw.Text('TOTAL',
-                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
-              _receiptLine('Itens', pedido.total.subTotal, font: font),
-              _receiptLine('Taxa Entrega', pedido.total.deliveryFee,
-                  font: font),
-              _receiptLine('Taxa Adicional', pedido.total.additionalFees,
-                  font: font),
+                  // INFORMAÇÕES ADICIONAIS
+                  if (pedido.customer.documentNumber.isNotEmpty &&
+                      pedido.delivery.deliveredBy == "MERCHANT") ...[
+                    pw.SizedBox(height: 2),
+                    pw.Divider(thickness: 0.8),
+                    pw.Text('INFORMAÇÕES ADICIONAIS',
+                        style: const pw.TextStyle(fontSize: 8)),
+                    pw.Text('Incluir CPF na Nota Fiscal',
+                        style: pw.TextStyle(font: font, fontSize: 8)),
+                    pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
+                        style: pw.TextStyle(font: font, fontSize: 8)),
+                  ],
 
-              ...discounts.map((discount) {
-                return _receiptLineString(
-                  'Desconto',
-                  '${discount['name'] == 'MERCHANT' ? 'LOJA' : discount['name']} - R\$ ${discount['value'].toStringAsFixed(2)}',
-                  font: font,
-                );
-              }),
-              _receiptLine('TOTAL', pedido.total.orderAmount, font: fontBold),
-              pw.Divider(thickness: 0.8),
+                  // ENTREGA
+                  if (pedido.delivery.deliveredBy == "MERCHANT") ...[
+                    pw.Divider(thickness: 0.8),
+                    pw.Center(
+                        child: pw.Text('ENTREGA PEDIDO #${pedido.displayId}',
+                            style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                    pw.Text(
+                      'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                    pw.Text(
+                      'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                    pw.Text(
+                      'Comp: ${pedido.delivery.deliveryAddress.complement}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                    if (pedido.delivery.deliveryAddress.reference != null)
+                      pw.Text(
+                          'Ref: ${pedido.delivery.deliveryAddress.reference}',
+                          style: pw.TextStyle(font: font, fontSize: 7)),
+                    pw.Text(
+                      'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                    pw.Text(
+                      'Cidade: ${pedido.delivery.deliveryAddress.city} - ${pedido.delivery.deliveryAddress.state}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                    pw.Text(
+                      'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                  ],
 
-              pw.Center(
-                  child: pw.Text('PAGAMENTO',
-                      style: pw.TextStyle(font: fontBold, fontSize: 9))),
-
-              if (pedido.payments.prepaid > 0)
-                _receiptLine('Total Online', pedido.payments.prepaid,
-                    font: font),
-
-              if (pedido.payments.pending > 0) ...[
-                pw.Text('A RECEBER NA ENTREGA',
-                    style: pw.TextStyle(font: font, fontSize: 8)),
-                ...pedido.payments.methods
-                    .where((p) => p.prepaid == false)
-                    .map((p) {
-                  final methodLabel = _formatPaymentMethod(p.method);
-                  return pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('- $methodLabel',
-                          style: pw.TextStyle(font: font, fontSize: 8)),
-                      pw.Text('R\$ ${p.value.toStringAsFixed(2)}',
-                          style: pw.TextStyle(font: font, fontSize: 8)),
-                    ],
-                  );
-                }),
-              ],
-
-              // INFORMAÇÕES ADICIONAIS
-              if (pedido.customer.documentNumber.isNotEmpty &&
-                  pedido.delivery.deliveredBy == "MERCHANT") ...[
-                pw.SizedBox(height: 2),
-                pw.Divider(thickness: 0.8),
-                pw.Text('INFORMAÇÕES ADICIONAIS',
-                    style: const pw.TextStyle(fontSize: 8)),
-                pw.Text('Incluir CPF na Nota Fiscal',
-                    style: pw.TextStyle(font: font, fontSize: 8)),
-                pw.Text('CPF do Cliente: ${pedido.customer.documentNumber}',
-                    style: pw.TextStyle(font: font, fontSize: 8)),
-              ],
-
-              // ENTREGA
-              if (pedido.delivery.deliveredBy == "MERCHANT") ...[
-                pw.Divider(thickness: 0.8),
-                pw.Center(
-                    child: pw.Text('ENTREGA PEDIDO #${pedido.displayId}',
-                        style: pw.TextStyle(font: fontBold, fontSize: 9))),
-                pw.Text(
-                  'Entregador: ${pedido.delivery.deliveredBy == "MERCHANT" ? "Entrega própria" : "PARCEIRO IFOOD"}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-                pw.Text(
-                  'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-                pw.Text(
-                  'Comp: ${pedido.delivery.deliveryAddress.complement}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-                if (pedido.delivery.deliveryAddress.reference != null)
-                  pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
-                      style: pw.TextStyle(font: font, fontSize: 7)),
-                pw.Text(
-                  'Bairro: ${pedido.delivery.deliveryAddress.neighborhood}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-                pw.Text(
-                  'Cidade: ${pedido.delivery.deliveryAddress.city} - ${pedido.delivery.deliveryAddress.state}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-                pw.Text(
-                  'CEP: ${pedido.delivery.deliveryAddress.postalCode}',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                ),
-              ],
-
-              pw.SizedBox(height: 6),
-              pw.Text('Impresso por: KRONOS ERP $versaoDoMeuSistema',
-                  style: pw.TextStyle(font: font, fontSize: 8)),
-              // ... (restante do código existente de geração de PDF)
-            ],
+                  pw.SizedBox(height: 6),
+                  pw.Text('Impresso por: KRONOS ERP $versaoDoMeuSistema',
+                      style: pw.TextStyle(font: font, fontSize: 8)),
+                  // ... (restante do código existente de geração de PDF)
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -384,6 +437,28 @@ class _OrderDetailsState extends State<OrderDetails> {
           upperStatus.contains('CANCEL');
 
       if (isCancelled) updatedOrder.statusCode = Consts.statusCancelled;
+
+      final currentOrder = widget.controller.selectedPedido.value;
+      if (currentOrder != null && currentOrder.id == updatedOrder.id) {
+        for (final event in currentOrder.events) {
+          final hasEvent = updatedOrder.events.any((current) =>
+              current.id.isNotEmpty && current.id == event.id ||
+              (current.id.isEmpty &&
+                  current.code == event.code &&
+                  current.fullCode == event.fullCode &&
+                  current.createdAt == event.createdAt));
+
+          if (!hasEvent) {
+            updatedOrder.events.add(event);
+          }
+        }
+
+        updatedOrder.status = widget.controller.mapApiStatusToCode(
+          updatedOrder.status.isEmpty ? currentOrder.status : updatedOrder.status,
+        );
+        await widget.controller.atualizarPedido(updatedOrder);
+        widget.controller.selectedPedido.value = updatedOrder;
+      }
 
       setState(() => _isUpdating = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -546,6 +621,7 @@ class _OrderDetailsState extends State<OrderDetails> {
 
     final status =
         widget.controller.selectedPedido.value?.status.toUpperCase() ?? '';
+    final selectedOrder = widget.controller.selectedPedido.value!;
     final isHsd = status == 'HSD';
     final isTimeExpired = _isTimeExpired(
         widget.controller.selectedPedido.value?.metadata?.expiresAt);
@@ -796,6 +872,26 @@ class _OrderDetailsState extends State<OrderDetails> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (IfoodEventUtils.isIfoodSalesChannel(
+                        selectedOrder.salesChannel) ||
+                    IfoodEventUtils.isIfoodDelivery(
+                        selectedOrder.delivery.deliveredBy)) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: OrderIfoodTracking(order: selectedOrder),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,

@@ -1,8 +1,7 @@
-// import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
-import 'package:kronos_food/service/preferences_service.dart';
-import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/consts.dart';
+import 'package:kronos_food/controllers/main_controller.dart';
+import 'package:kronos_food/service/preferences_service.dart';
 
 class AuthRepository {
   final Dio dio = Dio();
@@ -13,7 +12,6 @@ class AuthRepository {
     return await _preferencesService.getConfig();
   }
 
-  // Save config to preferences
   Future<void> saveConfig(Map<String, dynamic> config) async {
     await _preferencesService.saveConfig(config);
   }
@@ -26,50 +24,18 @@ class AuthRepository {
     await _preferencesService.saveCodeUser(code);
   }
 
-  // Save tokens to preferences
-  // Future<void> saveTokens(String refreshToken, String accessToken) async {
-  //   await _preferencesService.saveRefreshToken(refreshToken);
-  //   await _preferencesService.saveAccessToken(accessToken);
-  // }
-
-  // Verifica e atualiza o token se necessário
   Future<String?> getValidAccessToken() async {
-    bool isExpired = await _preferencesService.isTokenExpired();
+    final isExpired = await _preferencesService.isTokenExpired();
+    final currentToken = await _preferencesService.getAccessToken();
 
-    // Se o token não estiver expirado, retorne o token atual
-    if (!isExpired) {
-      return await _preferencesService.getAccessToken();
+    if (!isExpired && currentToken != null && currentToken.isNotEmpty) {
+      return currentToken;
     }
 
-    // Se estiver expirado, atualize usando o refresh token
     try {
-      String? refreshToken = await _preferencesService.getRefreshToken();
-      if (refreshToken == null) {
-        return null; // Não tem refresh token, precisa de nova autenticação
-      }
-
-      // Chama o método authenticate com isRefresh=true para usar refreshToken
-      Map<String, dynamic> tokenData =
-          await authenticate(true, "", "", refreshToken);
-
-      // Salva o novo token nos preferences
-
-      final dateTime = DateTime.now();
-      final expiresIn = tokenData['expiresIn'] ?? 21600;
-      final expirationTime = dateTime.add(Duration(seconds: expiresIn));
-
-      await _saveTokensToBackend(
-          tokenData['accessToken'], tokenData['refreshToken'], expirationTime);
-
-      await saveConfig({
-        'accessToken': tokenData['accessToken'],
-        'refreshToken': tokenData['refreshToken'],
-        'dataHoraToken': expirationTime.toIso8601String()
-      });
-
-      // Atualiza o mainController com os novos tokens
+      final tokenData = await authenticateWithClientCredentials();
+      await saveConfig(tokenData);
       _mainController.setConfig(tokenData);
-
       return tokenData['accessToken'];
     } catch (e) {
       print("Erro ao atualizar token: $e");
@@ -77,46 +43,8 @@ class AuthRepository {
     }
   }
 
-  Future<bool> _saveTokensToBackend(
-      String accessToken, String refreshToken, DateTime dataHoraToken) async {
-    try {
-      var serverIp = await _preferencesService.getServerIp();
-      var kronosToken = await _preferencesService.getKronosToken();
-      final codigoEmpresa = await _preferencesService.getCompanyCode() ?? '1';
-      // Construir a URL para a API
-      final url = '$serverIp/delivery/externo/configuracao';
-
-      // Fazer requisição para o endpoint
-      final response = await dio
-          .put(
-            url,
-            data: {
-              'AccessToken': accessToken,
-              'RefreshToken': refreshToken,
-              'DataHoraToken': dataHoraToken.toIso8601String()
-            },
-            options: Options(
-              headers: {
-                'Content-Type': 'application/json',
-                "Auth": kronosToken ?? "",
-                "Empresa": codigoEmpresa,
-              },
-            ),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
   Future<Map<String, dynamic>> getUserCode() async {
-    var response = await dio.post(
+    final response = await dio.post(
       "${Consts.authUrl}/oauth/userCode",
       options: Options(
         headers: {
@@ -129,43 +57,89 @@ class AuthRepository {
     );
 
     if (response.statusCode == 200) {
-      var body = response.data;
-      return body;
+      return Map<String, dynamic>.from(response.data as Map);
     } else {
       throw Exception("Failed to authenticate");
     }
   }
 
-  Future<Map<String, dynamic>> authenticate(bool isRefresh, String authCode,
-      String verifyCode, String refreshToken) async {
-    var headers = <String, String>{
-      'Content-Type': 'application/x-www-form-urlencoded',
-    };
-
-    var body = {
-      'grantType': "authorization_code",
-      'clientId': Consts.clientId,
-      'clientSecret': Consts.clientSecret,
-      "authorizationCode": authCode,
-      "authorizationCodeVerifier": verifyCode
-    };
-
-    if (isRefresh) {
-      body['grantType'] = "refresh_token";
-      body["refreshToken"] = refreshToken;
-    }
-
-    var response = await dio.post("${Consts.authUrl}/oauth/token",
-        options: Options(
-          headers: headers,
-        ),
-        data: body);
+  Future<Map<String, dynamic>> authenticateWithClientCredentials() async {
+    final response = await dio.post(
+      "${Consts.authUrl}/oauth/token",
+      options: Options(
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      ),
+      data: {
+        'grantType': "client_credentials",
+        'clientId': Consts.clientId,
+        'clientSecret': Consts.clientSecret,
+      },
+    );
 
     if (response.statusCode == 200) {
-      var body = response.data;
-      return body;
+      return _normalizeTokenData(response.data);
     } else {
       throw Exception(response.data);
     }
+  }
+
+  Future<Map<String, dynamic>> authenticate(bool isRefresh, String authCode,
+      String verifyCode, String refreshToken) async {
+    if (isRefresh && refreshToken.isEmpty) {
+      return authenticateWithClientCredentials();
+    }
+
+    final body = <String, dynamic>{
+      'grantType': isRefresh ? "refresh_token" : "authorization_code",
+      'clientId': Consts.clientId,
+      'clientSecret': Consts.clientSecret,
+    };
+
+    if (isRefresh) {
+      body["refreshToken"] = refreshToken;
+    } else {
+      body["authorizationCode"] = authCode;
+      body["authorizationCodeVerifier"] = verifyCode;
+    }
+
+    final response = await dio.post(
+      "${Consts.authUrl}/oauth/token",
+      options: Options(
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      ),
+      data: body,
+    );
+
+    if (response.statusCode == 200) {
+      return _normalizeTokenData(response.data);
+    } else {
+      throw Exception(response.data);
+    }
+  }
+
+  Map<String, dynamic> _normalizeTokenData(dynamic data) {
+    final body = Map<String, dynamic>.from(data as Map);
+    final accessToken = body['accessToken'] ?? body['access_token'];
+    final expiresIn = body['expiresIn'] ?? body['expires_in'] ?? 3600;
+
+    if (accessToken == null || accessToken.toString().isEmpty) {
+      throw Exception("Token do iFood nao retornado");
+    }
+
+    return {
+      'accessToken': accessToken.toString(),
+      'expiresIn': expiresIn is int
+          ? expiresIn
+          : int.tryParse(expiresIn.toString()) ?? 3600,
+      if (body['refreshToken'] != null || body['refresh_token'] != null)
+        'refreshToken':
+            (body['refreshToken'] ?? body['refresh_token']).toString(),
+      if (body['tokenType'] != null || body['token_type'] != null)
+        'tokenType': (body['tokenType'] ?? body['token_type']).toString(),
+    };
   }
 }

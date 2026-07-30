@@ -6,6 +6,16 @@ import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 
 class OrderListSection extends StatelessWidget {
+  static const Set<String> _knownStatusCodes = {
+    Consts.statusPlaced,
+    Consts.statusDispute,
+    Consts.statusConfirmed,
+    Consts.statusReadyToPickup,
+    Consts.statusDispatched,
+    Consts.statusConcluded,
+    Consts.statusCancelled,
+  };
+
   final ValueNotifier<OrderTimming> orderTimming;
   final Map<String, List<PedidoModel>> pedidosMap;
   final Map<String, bool> isExpanded;
@@ -42,20 +52,27 @@ class OrderListSection extends StatelessWidget {
         listenable: orderTimming,
         builder: (context, child) {
           final totalScheduledOrders = pedidosMap.values.fold<int>(
-              0,
-              (sum, list) =>
-                  sum + list.where((p) => p.orderTiming == "SCHEDULED" && p.status == 'PLC').length);
+            0,
+            (sum, list) => sum + list.where(_isScheduledPending).length,
+          );
 
           final totalImmediateOrders = pedidosMap.values.fold<int>(
-              0,
-              (sum, list) =>
-                  sum + list.where((p) => p.orderTiming == "IMMEDIATE" || p.status == 'HSD').length);
+            0,
+            (sum, list) => sum + list.where(_isImmediateOrder).length,
+          );
 
           final scheduledOrders =
               pedidosMap.values.fold<List<PedidoModel>>([], (list, element) {
-            list.addAll(element.where((e) => e.orderTiming == "SCHEDULED" && e.status == 'PLC'));
+            list.addAll(element.where(_isScheduledPending));
             return list;
           });
+
+          final unknownImmediateOrders = pedidosMap.entries
+              .where((entry) => !_knownStatusCodes.contains(entry.key))
+              .expand((entry) => entry.value)
+              .where(_isImmediateOrder)
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -188,9 +205,11 @@ class OrderListSection extends StatelessWidget {
                                           ],
                                         ),
                                         const SizedBox(height: 4),
-                                        if (order.schedule.deliveryDateTimeStart !=
+                                        if (order.schedule
+                                                    .deliveryDateTimeStart !=
                                                 null &&
-                                            order.schedule.deliveryDateTimeEnd !=
+                                            order.schedule
+                                                    .deliveryDateTimeEnd !=
                                                 null) ...[
                                           Row(
                                             children: [
@@ -259,14 +278,16 @@ class OrderListSection extends StatelessWidget {
                     ] else ...[
                       // Urgencias e Pendentes só aparecem se tiverem pedidos
                       ...[
-                        if (pedidosMap[Consts.statusDispute]?.isNotEmpty ?? false)
+                        if (pedidosMap[Consts.statusDispute]?.isNotEmpty ??
+                            false)
                           _buildOrderGroup(
                             title: 'Urgencias',
                             statusCode: Consts.statusDispute,
                             color: const Color.fromARGB(255, 214, 180, 28),
                             icon: Icons.fast_forward,
                           ),
-                        if (pedidosMap[Consts.statusPlaced]?.isNotEmpty ?? false)
+                        if (pedidosMap[Consts.statusPlaced]?.isNotEmpty ??
+                            false)
                           _buildOrderGroup(
                             title: 'Pendentes',
                             statusCode: Consts.statusPlaced,
@@ -281,6 +302,12 @@ class OrderListSection extends StatelessWidget {
                         statusCode: Consts.statusConfirmed,
                         color: Colors.blue,
                         icon: Icons.check_circle_outline,
+                      ),
+                      _buildOrderGroup(
+                        title: 'Prontos',
+                        statusCode: Consts.statusReadyToPickup,
+                        color: Colors.teal,
+                        icon: Icons.shopping_bag_outlined,
                       ),
                       _buildOrderGroup(
                         title: 'Despachados',
@@ -300,6 +327,14 @@ class OrderListSection extends StatelessWidget {
                         color: Colors.red,
                         icon: Icons.cancel,
                       ),
+                      if (unknownImmediateOrders.isNotEmpty)
+                        _buildOrderGroup(
+                          title: 'Outros status',
+                          statusCode: 'UNKNOWN',
+                          color: Colors.blueGrey,
+                          icon: Icons.help_outline,
+                          orders: unknownImmediateOrders,
+                        ),
                     ]
                   ],
                 ),
@@ -316,11 +351,12 @@ class OrderListSection extends StatelessWidget {
     required String statusCode,
     required Color color,
     required IconData icon,
+    List<PedidoModel>? orders,
   }) {
     return OrderGroup(
       orderTimming: orderTimming.value,
       title: title,
-      orders: pedidosMap[statusCode] ?? [],
+      orders: orders ?? pedidosMap[statusCode] ?? [],
       color: color,
       statusCode: statusCode,
       isExpanded: isExpanded[statusCode] ?? true,
@@ -329,6 +365,15 @@ class OrderListSection extends StatelessWidget {
       selectedOrderId: selectedOrderId,
       icon: icon,
     );
+  }
+
+  bool _isScheduledPending(PedidoModel order) {
+    return order.orderTiming == "SCHEDULED" &&
+        order.status == Consts.statusPlaced;
+  }
+
+  bool _isImmediateOrder(PedidoModel order) {
+    return !_isScheduledPending(order);
   }
 
   // Widget para os botões de filtro

@@ -55,13 +55,12 @@ class _LoginPageState extends State<LoginPage> {
 
       if (logicalKey == LogicalKeyboardKey.enter) {
         if (_usernameFocusNode.hasFocus) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-      _passwordFocusNode.requestFocus();
-    });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _passwordFocusNode.requestFocus();
+          });
         } else if (_passwordFocusNode.hasFocus) {
           _login();
         }
-
       }
 
       if (logicalKey == LogicalKeyboardKey.escape) {
@@ -104,14 +103,27 @@ class _LoginPageState extends State<LoginPage> {
             context, _usernameController.text, _passwordController.text);
 
         if (loginSuccessful == true && mounted) {
-          var result = await _authController.getCodCaixa(context);
-          if (result == false) {
+          final caixaAberto = await _authController.getCodCaixa(context);
+          if (caixaAberto == false) {
             _preencherDataHoraAtual();
-            _carregarTerminal();
-            _carregarCaixa();
-            return;
+            await _carregarTerminal();
+            await _carregarCaixa();
+            final caixaFoiAberto = await _showAbrirCaixaDialog();
+            if (caixaFoiAberto != true) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text('Abra o caixa para entrar e finalizar pedidos.'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              return;
+            }
           }
 
+          if (!mounted) return;
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const PedidosPage()),
           );
@@ -136,6 +148,149 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<bool> _showAbrirCaixaDialog() async {
+    if (_supAnteriorController.text.isEmpty) {
+      _supAnteriorController.text = '0,00';
+    }
+    if (_supAdicionarController.text.isEmpty) {
+      _supAdicionarController.text = '0,00';
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var isOpening = false;
+        String? error;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> abrirCaixa() async {
+              setDialogState(() {
+                isOpening = true;
+                error = null;
+              });
+
+              try {
+                final terminal =
+                    int.tryParse(_terminalController.text.trim()) ?? 1;
+                final opened = await _authController.abrirCaixa(
+                  context,
+                  terminal,
+                  _dataHoraController.text,
+                  _supAdicionarController.text,
+                );
+
+                final caixaCarregado = opened == true &&
+                    await _authController.getCodCaixa(context);
+
+                if (caixaCarregado) {
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop(true);
+                  }
+                  return;
+                }
+
+                setDialogState(() {
+                  error = 'Nao foi possivel abrir/carregar o caixa.';
+                  isOpening = false;
+                });
+              } catch (e) {
+                setDialogState(() {
+                  error = e.toString().replaceFirst('Exception: ', '');
+                  isOpening = false;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Abrir caixa'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Nao existe caixa aberto para este terminal. Abra o caixa para conseguir concluir pedidos.',
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _terminalController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Terminal',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _dataHoraController,
+                      decoration: const InputDecoration(
+                        labelText: 'Data de abertura',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _supAnteriorController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Suprimento anterior',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _supAdicionarController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Suprimento para abertura',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        error!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      isOpening ? null : () => Navigator.of(context).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: isOpening ? null : abrirCaixa,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Consts.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isOpening
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Abrir caixa'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    return result == true;
   }
 
   void _preencherDataHoraAtual() {
@@ -327,8 +482,8 @@ class _LoginPageState extends State<LoginPage> {
                                   icon: Icon(_obscurePassword
                                       ? Icons.visibility_off
                                       : Icons.visibility),
-                                  onPressed: () => setState(
-                                      () => _obscurePassword = !_obscurePassword),
+                                  onPressed: () => setState(() =>
+                                      _obscurePassword = !_obscurePassword),
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),

@@ -1,10 +1,11 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 
-// import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
+import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
-import 'package:kronos_food/consts.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class PollingRepository {
   final dio = Dio();
@@ -14,54 +15,109 @@ class PollingRepository {
     try {
       final accessToken = await _authRepository.getValidAccessToken();
       if (accessToken == null) {
-        throw Exception("Token de acesso inválido ou expirado");
+        throw Exception("Token de acesso invalido ou expirado");
       }
-
 
       final headers = {
         "Authorization": "Bearer $accessToken",
         'Content-type': 'application/json',
       };
- 
-      var response = await dio.get(
-          "${Consts.eventsUrl}/events:polling?groups=${Consts.orderStatusGroup}&types=HSD",
-          options: Options(headers: headers));
 
-      if (response.statusCode == 200) {
-        List<dynamic> body = response.data;
-        var events = body.map((e) => EventModel.fromJson(e)).toList();
-        developer.log("Eventos recebidos: ${events.length}");
+      final response = await dio
+          .get(
+            "${Consts.eventsUrl}/events:polling",
+            options: Options(headers: headers),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+          );
 
-        // Detectar eventos de cancelamento
-        for (var event in events) {
-          if (event.code == 'CAN' ||
-              event.code.toUpperCase().contains('CANCEL')) {
-            developer.log(
-                "🔴 EVENTO DE CANCELAMENTO recebido no polling: ${event.code} para pedido ${event.id}");
-          }
-        }
-
-        return events;
-      } else if (response.statusCode == 204) {
-        // Sem conteúdo, retorna lista vazia
+      if (response.statusCode == 204) {
         return [];
-      } else {
+      }
+
+      if (response.statusCode != 200) {
         developer
             .log("Erro no polling: ${response.statusCode} - ${response.data}");
+        await AppLogger.error(
+          'Polling iFood retornou status inesperado.',
+          data: {
+            'statusCode': response.statusCode,
+            'response': response.data,
+          },
+        );
         throw Exception("Falha no polling: ${response.statusCode}");
       }
-    } catch (e) {
+
+      final body = _parseEventsBody(response.data);
+      final events = body
+          .whereType<Map>()
+          .map((event) => EventModel.fromJson(Map<String, dynamic>.from(event)))
+          .toList();
+
+      developer.log("Eventos recebidos: ${events.length}");
+
+      if (events.isNotEmpty) {
+        await AppLogger.error(
+          'Polling iFood retornou eventos.',
+          data: {
+            'statusCode': response.statusCode,
+            'eventCount': events.length,
+            'events': events
+                .map((event) => {
+                      'id': event.id,
+                      'code': event.code,
+                      'fullCode': event.fullCode,
+                      'orderId': event.orderId,
+                      'merchantId': event.merchantId,
+                    })
+                .toList(),
+          },
+        );
+      }
+
+      for (final event in events) {
+        if (event.code == 'CAN' ||
+            event.code.toUpperCase().contains('CANCEL')) {
+          developer.log(
+            "Evento de cancelamento recebido no polling: "
+            "${event.code} para pedido ${event.id}",
+          );
+        }
+      }
+
+      return events;
+    } catch (e, stackTrace) {
       developer.log("Erro ao fazer polling: $e");
-      // Retorna lista vazia em caso de erro para não interromper o fluxo
+      await AppLogger.error(
+        'Erro ao fazer polling iFood.',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return [];
     }
+  }
+
+  List<dynamic> _parseEventsBody(dynamic data) {
+    if (data == null) return [];
+    if (data is List) return data;
+    if (data is Map) return [data];
+    if (data is String) {
+      if (data.trim().isEmpty) return [];
+      final decoded = jsonDecode(data);
+      if (decoded is List) return decoded;
+      if (decoded is Map) return [decoded];
+      return [];
+    }
+
+    throw FormatException("Formato inesperado no polling: ${data.runtimeType}");
   }
 
   Future<bool> acknowledgeEvents(List<Map<String, String>> eventIds) async {
     try {
       final accessToken = await _authRepository.getValidAccessToken();
       if (accessToken == null) {
-        throw Exception("Token de acesso inválido ou expirado");
+        throw Exception("Token de acesso invalido ou expirado");
       }
 
       final headers = {
@@ -69,23 +125,41 @@ class PollingRepository {
         'Content-type': 'application/json',
       };
 
-      var body = eventIds;
-      var response = await dio.post("${Consts.eventsUrl}/events/acknowledgment",
-          options: Options(
-            headers: headers,
-          ),
-          data: body);
+      final response = await dio
+          .post(
+            "${Consts.eventsUrl}/events/acknowledgment",
+            options: Options(headers: headers),
+            data: eventIds,
+          )
+          .timeout(
+            const Duration(seconds: 15),
+          );
 
       if (response.statusCode == 202) {
         developer.log("Eventos confirmados com sucesso: ${eventIds.length}");
         return true;
-      } else {
-        developer.log(
-            "Erro ao confirmar eventos: ${response.statusCode} - ${response.data}");
-        return false;
       }
-    } catch (e) {
+
+      developer.log(
+        "Erro ao confirmar eventos: ${response.statusCode} - ${response.data}",
+      );
+      await AppLogger.error(
+        'Ack de eventos iFood retornou status inesperado.',
+        data: {
+          'statusCode': response.statusCode,
+          'response': response.data,
+          'eventIds': eventIds,
+        },
+      );
+      return false;
+    } catch (e, stackTrace) {
       developer.log("Erro ao confirmar eventos: $e");
+      await AppLogger.error(
+        'Erro ao confirmar eventos iFood.',
+        error: e,
+        stackTrace: stackTrace,
+        data: {'eventIds': eventIds},
+      );
       return false;
     }
   }

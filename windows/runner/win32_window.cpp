@@ -15,6 +15,12 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -150,7 +156,7 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return ShowWindow(window_handle_, SW_SHOW);
 }
 
 // static
@@ -273,16 +279,14 @@ void Win32Window::OnDestroy() {
 }
 
 void Win32Window::UpdateTheme(HWND const window) {
-  DWORD light_mode;
-  DWORD light_mode_size = sizeof(light_mode);
-  LSTATUS result = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
-                               kGetPreferredBrightnessRegValue,
-                               RRF_RT_REG_DWORD, nullptr, &light_mode,
-                               &light_mode_size);
+  BOOL enable_dark_mode = FALSE;
+  DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                        &enable_dark_mode, sizeof(enable_dark_mode));
 
-  if (result == ERROR_SUCCESS) {
-    BOOL enable_dark_mode = light_mode == 0;
-    DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                          &enable_dark_mode, sizeof(enable_dark_mode));
-  }
+  COLORREF caption_color = RGB(255, 255, 255);
+  COLORREF text_color = RGB(0, 0, 0);
+  DwmSetWindowAttribute(window, DWMWA_CAPTION_COLOR,
+                        &caption_color, sizeof(caption_color));
+  DwmSetWindowAttribute(window, DWMWA_TEXT_COLOR,
+                        &text_color, sizeof(text_color));
 }

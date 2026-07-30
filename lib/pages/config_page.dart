@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/service/preferences_service.dart';
 
@@ -14,12 +15,21 @@ class _ConfigPageState extends State<ConfigPage> {
   late String? _serverIp;
   late String? _companyCode;
   late String? _terminalCode;
+  late String? _ifoodMerchantId;
+  late String? _ifoodWidgetId;
   final preferencesService = PreferencesService();
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _companyCodeController = TextEditingController();
   final TextEditingController _terminalController = TextEditingController();
   final TextEditingController _serverIpController = TextEditingController();
+  final TextEditingController _ifoodMerchantIdController =
+      TextEditingController();
+  final TextEditingController _ifoodWidgetIdController =
+      TextEditingController();
   bool _isSaving = false;
+  bool _isTestingConnection = false;
+  bool? _connectionOk;
+  String? _connectionResult;
 
   @override
   void initState() {
@@ -31,10 +41,14 @@ class _ConfigPageState extends State<ConfigPage> {
     _serverIp = await preferencesService.getServerIp();
     _companyCode = await preferencesService.getCompanyCode();
     _terminalCode = await preferencesService.getTerminalCode();
+    _ifoodMerchantId = await preferencesService.getIfoodMerchantId();
+    _ifoodWidgetId = await preferencesService.getIfoodWidgetId();
     setState(() {
       _companyCodeController.text = _companyCode ?? '';
       _terminalController.text = _terminalCode ?? '1';
       _serverIpController.text = _serverIp ?? '';
+      _ifoodMerchantIdController.text = _ifoodMerchantId ?? Consts.merchantId;
+      _ifoodWidgetIdController.text = _ifoodWidgetId ?? Consts.ifoodWidgetId;
     });
   }
 
@@ -48,6 +62,10 @@ class _ConfigPageState extends State<ConfigPage> {
         await preferencesService.saveServerIp(_serverIpController.text);
         await preferencesService.saveCompanyCode(_companyCodeController.text);
         await preferencesService.saveTerminalCode(_terminalController.text);
+        await preferencesService
+            .saveIfoodMerchantId(_ifoodMerchantIdController.text);
+        await preferencesService
+            .saveIfoodWidgetId(_ifoodWidgetIdController.text);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -76,6 +94,117 @@ class _ConfigPageState extends State<ConfigPage> {
         });
       }
     }
+  }
+
+  String _normalizeServerUrl(String value) {
+    return PreferencesService.normalizeServerUrl(value);
+  }
+
+  Future<void> _testarConexao() async {
+    final serverUrl = _normalizeServerUrl(_serverIpController.text);
+    final uri = Uri.tryParse(serverUrl);
+
+    if (serverUrl.isEmpty ||
+        uri == null ||
+        !uri.hasScheme ||
+        uri.host.isEmpty) {
+      setState(() {
+        _connectionOk = false;
+        _connectionResult = 'Informe um endereco de servidor valido.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isTestingConnection = true;
+      _connectionOk = null;
+      _connectionResult = null;
+    });
+
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      final response = await dio.get(
+        serverUrl,
+        options: Options(
+          followRedirects: false,
+          validateStatus: (_) => true,
+        ),
+      );
+
+      final statusCode = response.statusCode ?? 0;
+      final ok = statusCode > 0 && statusCode < 500;
+
+      if (!mounted) return;
+      setState(() {
+        _serverIpController.text = serverUrl;
+        _connectionOk = ok;
+        _connectionResult = ok
+            ? 'Conexao OK. Servidor respondeu HTTP $statusCode.'
+            : 'Servidor respondeu HTTP $statusCode.';
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _connectionOk = false;
+        _connectionResult = 'Falha na conexao: ${e.message ?? e.type.name}.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _connectionOk = false;
+        _connectionResult = 'Falha na conexao: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTestingConnection = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildConnectionResult() {
+    final ok = _connectionOk == true;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color:
+            ok ? Colors.green.withOpacity(0.08) : Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ok
+              ? Colors.green.withOpacity(0.25)
+              : Colors.red.withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle_outline : Icons.error_outline,
+            color: ok ? Colors.green : Colors.red,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _connectionResult ?? '',
+              style: TextStyle(
+                color: ok ? Colors.green[800] : Colors.red[800],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -126,7 +255,7 @@ class _ConfigPageState extends State<ConfigPage> {
               ),
             ),
           ),
-          
+
           // Conteúdo principal
           Expanded(
             child: Center(
@@ -175,11 +304,11 @@ class _ConfigPageState extends State<ConfigPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 32),
-                                
+
                                 // Divisor visual
                                 Divider(color: Colors.grey[200], height: 1),
                                 const SizedBox(height: 32),
-                                
+
                                 // Grupo de campos
                                 Column(
                                   children: [
@@ -187,18 +316,23 @@ class _ConfigPageState extends State<ConfigPage> {
                                     _buildFormField(
                                       icon: Icons.cloud,
                                       label: 'Endereço do Servidor',
-                                      hint: 'Ex: http://servidor:5000 ou 192.168.1.100',
+                                      hint:
+                                          'Ex: http://servidor:5000 ou 192.168.1.100',
                                       controller: _serverIpController,
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
                                           return 'Por favor, insira o endereço do servidor';
                                         }
-                                        final lowercaseValue = value.toLowerCase();
-                                        if (lowercaseValue.contains('localhost')) {
+                                        final lowercaseValue =
+                                            value.toLowerCase();
+                                        if (lowercaseValue
+                                            .contains('localhost')) {
                                           return null;
                                         }
-                                        if (lowercaseValue.startsWith('http://') ||
-                                            lowercaseValue.startsWith('https://')) {
+                                        if (lowercaseValue
+                                                .startsWith('http://') ||
+                                            lowercaseValue
+                                                .startsWith('https://')) {
                                           return null;
                                         }
                                         if (lowercaseValue.contains('.')) {
@@ -207,9 +341,9 @@ class _ConfigPageState extends State<ConfigPage> {
                                         return 'Por favor, insira um endereço válido';
                                       },
                                     ),
-                                    
+
                                     const SizedBox(height: 24),
-                                    
+
                                     // Linha com dois campos
                                     Row(
                                       children: [
@@ -221,10 +355,12 @@ class _ConfigPageState extends State<ConfigPage> {
                                             controller: _companyCodeController,
                                             keyboardType: TextInputType.number,
                                             inputFormatters: [
-                                              FilteringTextInputFormatter.digitsOnly,
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
                                             ],
                                             validator: (value) {
-                                              if (value == null || value.isEmpty) {
+                                              if (value == null ||
+                                                  value.isEmpty) {
                                                 return 'Por favor, insira o código';
                                               }
                                               return null;
@@ -240,10 +376,12 @@ class _ConfigPageState extends State<ConfigPage> {
                                             controller: _terminalController,
                                             keyboardType: TextInputType.number,
                                             inputFormatters: [
-                                              FilteringTextInputFormatter.digitsOnly,
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
                                             ],
                                             validator: (value) {
-                                              if (value == null || value.isEmpty) {
+                                              if (value == null ||
+                                                  value.isEmpty) {
                                                 return 'Por favor, insira o terminal';
                                               }
                                               return null;
@@ -252,61 +390,167 @@ class _ConfigPageState extends State<ConfigPage> {
                                         ),
                                       ],
                                     ),
+
+                                    const SizedBox(height: 24),
+
+                                    _buildFormField(
+                                      icon: Icons.storefront,
+                                      label: 'ID da Loja iFood',
+                                      hint: Consts.merchantId,
+                                      controller: _ifoodMerchantIdController,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9a-fA-F-]'),
+                                        ),
+                                      ],
+                                      validator: (value) {
+                                        final merchantId = value?.trim() ?? '';
+                                        if (merchantId.isEmpty) {
+                                          return null;
+                                        }
+
+                                        final uuidRegex = RegExp(
+                                          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                                        );
+                                        if (!uuidRegex.hasMatch(merchantId)) {
+                                          return 'Informe um ID de loja iFood valido';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 24),
+
+                                    _buildFormField(
+                                      icon: Icons.chat_bubble_outline,
+                                      label: 'Widget ID iFood',
+                                      hint: Consts.ifoodWidgetId,
+                                      controller: _ifoodWidgetIdController,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9a-fA-F-]'),
+                                        ),
+                                      ],
+                                      validator: (value) {
+                                        final widgetId = value?.trim() ?? '';
+                                        if (widgetId.isEmpty) {
+                                          return null;
+                                        }
+
+                                        final uuidRegex = RegExp(
+                                          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                                        );
+                                        if (!uuidRegex.hasMatch(widgetId)) {
+                                          return 'Informe um Widget ID valido';
+                                        }
+                                        return null;
+                                      },
+                                    ),
                                   ],
                                 ),
-                                
+
                                 const SizedBox(height: 40),
-                                
+
                                 // Botões de ação - agora em linha e alinhados à direita
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     // Botão Voltar (secundário)
-                                    
+
                                     const SizedBox(width: 16),
-                                    
+
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 12),
+                                        side: BorderSide(
+                                            color: Consts.primaryColor),
+                                        foregroundColor: Consts.primaryColor,
+                                      ),
+                                      icon: _isTestingConnection
+                                          ? const SizedBox(
+                                              height: 18,
+                                              width: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.wifi_tethering),
+                                      label: Text(_isTestingConnection
+                                          ? 'TESTANDO...'
+                                          : 'TESTAR CONEXAO'),
+                                      onPressed: _isTestingConnection
+                                          ? null
+                                          : _testarConexao,
+                                    ),
+
+                                    const SizedBox(width: 16),
+
                                     // Botão Limpar
                                     OutlinedButton(
                                       style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        side: BorderSide(color: Colors.grey[300]!),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 12),
+                                        side: BorderSide(
+                                            color: Colors.grey[300]!),
                                         foregroundColor: Colors.grey[800],
                                       ),
                                       onPressed: () async {
-                                        final confirmed = await showDialog<bool>(
+                                        final confirmed =
+                                            await showDialog<bool>(
                                           context: context,
                                           builder: (context) => AlertDialog(
-                                            title: const Text('Limpar configurações'),
-                                            content: const Text('Tem certeza que deseja limpar todas as configurações?'),
+                                            title: const Text(
+                                                'Limpar configurações'),
+                                            content: const Text(
+                                                'Tem certeza que deseja limpar todas as configurações?'),
                                             actions: [
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context, false),
+                                                onPressed: () => Navigator.pop(
+                                                    context, false),
                                                 child: const Text('Cancelar'),
                                               ),
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context, true),
-                                                child: const Text('Limpar', style: TextStyle(color: Colors.red)),
+                                                onPressed: () => Navigator.pop(
+                                                    context, true),
+                                                child: const Text('Limpar',
+                                                    style: TextStyle(
+                                                        color: Colors.red)),
                                               ),
                                             ],
                                           ),
                                         );
-                                        
+
                                         if (confirmed == true && mounted) {
-                                          await preferencesService.clearCompanyCode();
-                                          await preferencesService.clearServerIp();
-                                          await preferencesService.clearTerminalCode();
-                                          
+                                          await preferencesService
+                                              .clearCompanyCode();
+                                          await preferencesService
+                                              .clearServerIp();
+                                          await preferencesService
+                                              .clearTerminalCode();
+                                          await preferencesService
+                                              .clearIfoodMerchantId();
+                                          await preferencesService
+                                              .clearIfoodWidgetId();
+
                                           setState(() {
                                             _companyCodeController.clear();
                                             _serverIpController.clear();
                                             _terminalController.clear();
+                                            _ifoodMerchantIdController.clear();
+                                            _ifoodWidgetIdController.clear();
+                                            _connectionOk = null;
+                                            _connectionResult = null;
                                           });
-                                          
-                                          ScaffoldMessenger.of(context).showSnackBar(
+
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             const SnackBar(
-                                              content: Text('Configurações limpas com sucesso!'),
+                                              content: Text(
+                                                  'Configurações limpas com sucesso!'),
                                               backgroundColor: Colors.green,
-                                              behavior: SnackBarBehavior.floating,
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                               margin: EdgeInsets.all(20),
                                             ),
                                           );
@@ -314,17 +558,20 @@ class _ConfigPageState extends State<ConfigPage> {
                                       },
                                       child: const Text('LIMPAR'),
                                     ),
-                                    
+
                                     const SizedBox(width: 16),
-                                    
+
                                     // Botão Salvar (primário)
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 24, vertical: 12),
                                         backgroundColor: Consts.primaryColor,
                                         foregroundColor: Colors.white,
                                       ),
-                                      onPressed: _isSaving ? null : _salvarConfiguracoes,
+                                      onPressed: _isSaving
+                                          ? null
+                                          : _salvarConfiguracoes,
                                       child: _isSaving
                                           ? const SizedBox(
                                               height: 20,
@@ -338,12 +585,14 @@ class _ConfigPageState extends State<ConfigPage> {
                                     ),
                                   ],
                                 ),
+                                if (_connectionResult != null)
+                                  _buildConnectionResult(),
                               ],
                             ),
                           ),
                         ),
                       ),
-                      
+
                       // Rodapé informativo
                       const SizedBox(height: 32),
                       Text(
@@ -403,7 +652,8 @@ class _ConfigPageState extends State<ConfigPage> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -415,6 +665,8 @@ class _ConfigPageState extends State<ConfigPage> {
     _companyCodeController.dispose();
     _serverIpController.dispose();
     _terminalController.dispose();
+    _ifoodMerchantIdController.dispose();
+    _ifoodWidgetIdController.dispose();
     super.dispose();
   }
 }

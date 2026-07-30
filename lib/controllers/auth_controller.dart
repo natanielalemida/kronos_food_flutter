@@ -1,12 +1,13 @@
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:kronos_food/components/primeiro_acesso_dialog.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class AuthController extends ChangeNotifier {
   final dio = Dio();
@@ -15,6 +16,7 @@ class AuthController extends ChangeNotifier {
   factory AuthController() {
     return _instance;
   }
+
   var mainController = MainController();
   final authRepository = AuthRepository();
   final isAuthenticated = ValueNotifier(false);
@@ -23,80 +25,93 @@ class AuthController extends ChangeNotifier {
   final errorMsg = ValueNotifier("");
   final preferenceService = PreferencesService();
 
-  // Função para verificar tokens do iFood no backend
-  Future<bool> checkIfoodTokens(String kronosToken) async {
-    try {
-      final serverIp = await preferenceService.getServerIp() ?? 'localhost';
-      final codigoEmpresa = await preferenceService.getCompanyCode() ?? '1';
-      // Construir a URL para a API
-      final url = '$serverIp/delivery/externo/configuracao';
+  dynamic _readApiField(dynamic body, String field) {
+    if (body is! Map) return null;
+    if (body.containsKey(field)) return body[field];
 
-      // Fazer requisição para o endpoint
-      final response = await dio
-          .get(
-            url,
-            options: Options(
-              headers: {
-                'Content-Type': 'application/json',
-                "Auth": kronosToken,
-                "Empresa": codigoEmpresa,
-              },
-            ),
-          )
-          .timeout(
-            const Duration(seconds: 10),
-          );
+    final lowerField = field.toLowerCase();
+    if (body.containsKey(lowerField)) return body[lowerField];
 
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['Status'] != 1) {
-          debugPrint('Erro na resposta: ${data['Mensagem']}');
-          return false;
-        }
-        var resultado = data['Resultado'];
+    for (final entry in body.entries) {
+      if (entry.key.toString().toLowerCase() == lowerField) {
+        return entry.value;
+      }
+    }
 
-        // Verificar se o servidor retornou tokens válidos
-        if (resultado['RefreshToken'] != null &&
-            resultado['RefreshToken'].isNotEmpty &&
-            resultado['AccessToken'] != null &&
-            resultado['AccessToken'].isNotEmpty) {
-          // Salvar os tokens no repositório
-          await authRepository.saveConfig({
-            'accessToken': resultado['AccessToken'],
-            'refreshToken': resultado['RefreshToken'],
-            'dataHoraToken': resultado['DataHoraToken']
-          });
+    return null;
+  }
 
-          // Atualizar o mainController com os novos tokens
-          mainController.setConfig({
-            'accessToken': resultado['AccessToken'],
-            'refreshToken': resultado['RefreshToken'],
-          });
-          return true;
-        }
+  bool _isOne(dynamic value) => value == 1 || value?.toString() == '1';
+
+  String _messageFromResponse(dynamic data) {
+    final mensagens =
+        _readApiField(data, 'Mensagens') ?? _readApiField(data, 'mensagens');
+
+    if (mensagens is List && mensagens.isNotEmpty) {
+      final parts = mensagens
+          .map((item) =>
+              _readApiField(item, 'conteudo') ??
+              _readApiField(item, 'Conteudo') ??
+              item)
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+      if (parts.isNotEmpty) return parts.join(' | ');
+    }
+
+    final mensagem =
+        _readApiField(data, 'Mensagem') ?? _readApiField(data, 'mensagem');
+    if (mensagem != null && mensagem.toString().trim().isNotEmpty) {
+      return mensagem.toString().trim();
+    }
+
+    if (data != null) return data.toString();
+    return 'Sem detalhes retornados pelo servidor.';
+  }
+
+  String _friendlyLoginMessage(String message, {String? terminalCode}) {
+    final clean = message.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+
+    if (clean.contains('An error occurred while saving the entity changes')) {
+      final terminalMatch =
+          RegExp(r'terminalCode"?:"?(\d+)', caseSensitive: false)
+              .firstMatch(clean);
+      final terminal = terminalMatch?.group(1);
+
+      if (clean.contains('FK_RegistroLogin_Terminal_CodigoTerminal') ||
+          clean.contains('CodigoTerminal')) {
+        final terminalLabel = terminal ?? terminalCode;
+        return terminalLabel == null
+            ? 'Terminal nao cadastrado no Kronos. Ajuste o terminal nas Configuracoes ou cadastre esse terminal no backend.'
+            : 'Terminal $terminalLabel nao cadastrado no Kronos. Ajuste o terminal nas Configuracoes ou cadastre esse terminal no backend.';
       }
 
-      // Tokens não encontrados ou inválidos
-      return false;
-    } catch (e) {
-      debugPrint('Erro ao verificar tokens do iFood: $e');
-      return false;
+      return 'Erro no servidor Kronos ao salvar dados no banco. Verifique o log do backend/banco. Detalhe: $clean';
     }
+
+    return clean;
+  }
+
+  String _formatDioError(DioException error, String context) {
+    final statusCode = error.response?.statusCode;
+    final detail = _messageFromResponse(error.response?.data);
+    final base = statusCode == null
+        ? 'Falha de rede no $context: ${error.message ?? error.type.name}'
+        : 'Falha no $context: HTTP $statusCode - $detail';
+    return _friendlyLoginMessage(base);
   }
 
   Future<bool> authenticate(bool isRefresh, String authCode, String verifyCode,
       String refreshToken) async {
     try {
-      var tokenData = await authRepository.authenticate(
+      final tokenData = await authRepository.authenticate(
         isRefresh,
         authCode,
         verifyCode,
         refreshToken,
       );
 
-      // Save the token data to the preferences
-      if (tokenData['refreshToken'] != null &&
-          tokenData['accessToken'] != null) {
+      if (tokenData['accessToken'] != null) {
         await authRepository.saveConfig(tokenData);
       }
 
@@ -112,26 +127,19 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  // Novo método para autenticar e retornar os tokens obtidos
   Future<Map<String, dynamic>> authenticateAndGetTokens(bool isRefresh,
       String authCode, String verifyCode, String refreshToken) async {
     try {
-      var tokenData = await authRepository.authenticate(
+      final tokenData = await authRepository.authenticate(
         isRefresh,
         authCode,
         verifyCode,
         refreshToken,
       );
 
-      // Save the token data to the preferences
-      if (tokenData['refreshToken'] != null &&
-          tokenData['accessToken'] != null) {
+      if (tokenData['accessToken'] != null) {
         await authRepository.saveConfig(tokenData);
-
-        // Configurar o mainController
         mainController.setConfig(tokenData);
-
-        // Atualizar estado
         isAuthenticated.value = true;
         isAuthenticating.value = false;
         notifyListeners();
@@ -145,28 +153,24 @@ class AuthController extends ChangeNotifier {
       isAuthenticated.value = false;
       notifyListeners();
 
-      return {}; // Retorna mapa vazio em caso de erro
+      return {};
     }
   }
 
   Future<void> firstLogin(BuildContext context) async {
-    var authCredentials = await authRepository.getUserCode();
-    if (context.mounted) {
-      await showDialog(
-          barrierDismissible: false,
-          context: context,
-          builder: (context) {
-            return PrimeiroAcessoDialog(
-                authController: this, credentials: authCredentials);
-          });
-    }
-    return;
+    final tokenData = await authRepository.authenticateWithClientCredentials();
+    await authRepository.saveConfig(tokenData);
+    mainController.setConfig(tokenData);
+    isAuthenticating.value = false;
+    isAuthenticated.value = true;
+    notifyListeners();
   }
 
   Future<dynamic> kronosLogin(String usuario, String senha, int codApp,
       int numTermninal, int codigoEmpresa) async {
-    final serverIp = await preferenceService.getServerIp() ?? 'localhost';
-    var body = {
+    final serverIp =
+        await preferenceService.getServerIp() ?? 'http://localhost:5000';
+    final body = {
       'login': usuario,
       'senha': senha,
       'aplicacao': codApp,
@@ -174,64 +178,150 @@ class AuthController extends ChangeNotifier {
       'codigoempresa': codigoEmpresa
     };
 
-    var response = await dio.post('$serverIp/usuario/login',
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-        ),
-        data: body);
+    final response = await _postKronosLogin('$serverIp/usuario/login', body);
+
+    if (response.statusCode != 200) {
+      final message =
+          'Erro no login Kronos: HTTP ${response.statusCode} - ${_messageFromResponse(response.data)}';
+      await AppLogger.error(
+        'Login Kronos retornou HTTP diferente de 200',
+        data: {
+          'url': '$serverIp/usuario/login',
+          'statusCode': response.statusCode,
+          'response': response.data,
+          'login': usuario,
+          'aplicacao': codApp,
+          'numeroterminal': numTermninal,
+          'codigoempresa': codigoEmpresa,
+        },
+      );
+      throw Exception(_friendlyLoginMessage(
+        message,
+        terminalCode: numTermninal.toString(),
+      ));
+    }
+
+    if (response.data is! Map) {
+      await AppLogger.error(
+        'Login Kronos retornou resposta invalida',
+        data: {
+          'url': '$serverIp/usuario/login',
+          'statusCode': response.statusCode,
+          'response': response.data,
+        },
+      );
+      throw Exception("Resposta invalida do servidor Kronos.");
+    }
 
     return response.data;
   }
 
-  // Novo método para login direto do usuário
+  Future<Response<dynamic>> _postKronosLogin(
+      String url, Map<String, dynamic> body) async {
+    final response = await dio.post(
+      url,
+      options: Options(
+        headers: {'Content-Type': 'application/json'},
+        followRedirects: false,
+        validateStatus: (status) => status != null && status < 400,
+      ),
+      data: body,
+    );
+
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode == 301 ||
+        statusCode == 302 ||
+        statusCode == 307 ||
+        statusCode == 308) {
+      final location = response.headers.value('location');
+      if (location == null || location.isEmpty) {
+        throw Exception("Servidor redirecionou o login sem informar destino.");
+      }
+
+      final redirectedUrl = Uri.parse(url).resolve(location).toString();
+      return dio.post(
+        redirectedUrl,
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          followRedirects: true,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+        data: body,
+      );
+    }
+
+    return response;
+  }
+
   Future<Object> loginUser(
       BuildContext context, String username, String password) async {
     final companyCode = await preferenceService.getCompanyCode() ?? '1';
+    final terminalCode = await preferenceService.getTerminalCode() ?? '1';
     isAuthenticating.value = true;
     haveError.value = false;
+    errorMsg.value = "";
     notifyListeners();
 
-    var user =
-        await kronosLogin(username, password, 9, 1, int.parse(companyCode));
+    try {
+      final terminal = int.tryParse(terminalCode) ?? 1;
+      final company = int.tryParse(companyCode) ?? 1;
+      final user = await kronosLogin(username, password, 9, terminal, company);
 
-    if (user['Status'] == 1) {
-      //salve o kronosToken no estado: user['Resultado']['Usuario']['Hash'] ?? '';
-      //esse token será usado para buscar os dados do ifood no backend
-      String token = user['Resultado']['Usuario']['Hash'] ?? '';
-      int codigoUser = user['Resultado']['Usuario']['Codigo'];
-      await authRepository.saveKronosToken(token);
-      await authRepository.saveCodeUser(codigoUser.toString());
-      try {
-        // Verificar se temos tokens do iFood disponíveis no backend
-        final hasIfoodTokens = await checkIfoodTokens(token);
-        if (hasIfoodTokens) {
-          // Se temos tokens, podemos ir direto para a tela de pedidos
-          isAuthenticating.value = false;
-          isAuthenticated.value = true;
-          notifyListeners();
-
-          return true;
-        } else {
-          // Se não temos tokens, precisamos fazer o primeiro acesso
-          if (context.mounted) {
-            await firstLogin(context);
-          }
-
-          isAuthenticating.value = false;
-          notifyListeners();
-          return isAuthenticated
-              .value; // Retorna se a autenticação foi bem sucedida no primeiro acesso
-        }
-      } catch (err) {
+      final userStatus = _readApiField(user, 'Status');
+      if (!_isOne(userStatus)) {
         haveError.value = true;
-        errorMsg.value = err.toString();
-        isAuthenticating.value = false;
-        notifyListeners();
+        final message = _friendlyLoginMessage(
+          _messageFromResponse(user),
+          terminalCode: terminalCode,
+        );
+        errorMsg.value = message;
+        await AppLogger.error(
+          'Login Kronos recusado',
+          data: {
+            'status': userStatus,
+            'message': message,
+            'response': user,
+            'companyCode': companyCode,
+            'terminalCode': terminalCode,
+          },
+        );
         return false;
       }
-    }
 
-    return false;
+      final resultado = _readApiField(user, 'Resultado');
+      final usuario = _readApiField(resultado, 'Usuario');
+      final token = _readApiField(usuario, 'Hash') ?? '';
+      final codigoUser = _readApiField(usuario, 'Codigo');
+      await authRepository.saveKronosToken(token);
+      await authRepository.saveCodeUser(codigoUser.toString());
+
+      final tokenData =
+          await authRepository.authenticateWithClientCredentials();
+      await authRepository.saveConfig(tokenData);
+      mainController.setConfig(tokenData);
+
+      isAuthenticated.value = true;
+      return true;
+    } catch (err, stackTrace) {
+      haveError.value = true;
+      errorMsg.value = err is DioException
+          ? _formatDioError(err, 'login')
+          : _friendlyLoginMessage(err.toString(), terminalCode: terminalCode);
+      isAuthenticated.value = false;
+      await AppLogger.error(
+        'Falha inesperada no login',
+        error: err,
+        stackTrace: stackTrace,
+        data: {
+          'companyCode': companyCode,
+          'terminalCode': terminalCode,
+        },
+      );
+      return false;
+    } finally {
+      isAuthenticating.value = false;
+      notifyListeners();
+    }
   }
 
   Future<Object> abrirCaixa(BuildContext context, int codigo,
@@ -245,10 +335,8 @@ class AuthController extends ChangeNotifier {
     haveError.value = false;
     notifyListeners();
 
-    // Corrige valor no formato brasileiro para double
-    var valor = double.tryParse(valorSuprimentoAbertura.replaceAll(',', '.'));
+    final valor = double.tryParse(valorSuprimentoAbertura.replaceAll(',', '.'));
 
-    // Converte string "dd/MM/yyyy HH:mm" para DateTime
     DateTime dataConvertida;
     try {
       final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
@@ -257,30 +345,32 @@ class AuthController extends ChangeNotifier {
       haveError.value = true;
       isAuthenticating.value = false;
       notifyListeners();
-      throw FormatException("Data inválida: $dataAbertura");
+      throw FormatException("Data invalida: $dataAbertura");
     }
 
-    var data = {
+    final data = {
       "Codigo": codigo,
       "DataAbertura": dataConvertida.toIso8601String(),
       "ValorSuprimentoAbertura": valor
     };
 
     try {
-      var response = await dio.post('$serverIp/caixa/abrir',
-          options: Options(
-            headers: {
-              'Auth': kronosToken,
-              'Empresa': codigoEmpresa,
-              'Terminal': terminalCode
-            },
-          ),
-          data: data);
+      final response = await dio.post(
+        '$serverIp/caixa/abrir',
+        options: Options(
+          headers: {
+            'Auth': kronosToken,
+            'Empresa': codigoEmpresa,
+            'Terminal': terminalCode
+          },
+        ),
+        data: data,
+      );
 
       if (response.statusCode == 200) {
-        var body = response.data;
+        final body = response.data;
 
-        if (body['Status'] == 1) {
+        if (_isOne(_readApiField(body, 'Status'))) {
           return true;
         }
       }
@@ -304,24 +394,28 @@ class AuthController extends ChangeNotifier {
     haveError.value = false;
     notifyListeners();
 
-    var response = await dio.get('$serverIp/caixa/',
-        options: Options(
-          headers: {
-            'Auth': kronosToken,
-            'Empresa': codigoEmpresa,
-            'Terminal': terminalCode
-          },
-        ));
+    final response = await dio.get(
+      '$serverIp/caixa/',
+      options: Options(
+        headers: {
+          'Auth': kronosToken,
+          'Empresa': codigoEmpresa,
+          'Terminal': terminalCode
+        },
+      ),
+    );
 
     if (response.statusCode == 200) {
-      var body = response.data;
+      final body = response.data;
 
-      if (body['Status'] == 1) {
+      if (_isOne(_readApiField(body, 'Status'))) {
+        final resultado = _readApiField(body, 'Resultado');
         await preferenceService.saveCodCaixa(jsonEncode({
-          "Codigo": body["Resultado"]["Codigo"],
-          "ValorSupProximoCaixa": body["Resultado"]["ValorSupProximoCaixa"]
+          "Codigo": _readApiField(resultado, 'Codigo'),
+          "ValorSupProximoCaixa":
+              _readApiField(resultado, 'ValorSupProximoCaixa')
         }));
-        if (body['Resultado']['Situacao'] != 1) {
+        if (!_isOne(_readApiField(resultado, 'Situacao'))) {
           return false;
         }
 
@@ -335,21 +429,15 @@ class AuthController extends ChangeNotifier {
   Future<void> init(BuildContext context) async {
     notifyListeners();
     try {
-      var config = await authRepository.getConfig();
-      //remover access token após concluir implementação do first login
-      if (config['refreshToken'] != null) {
-        var isAuthenticated =
-            await authenticate(true, "", "", config['refreshToken']);
-        if (!isAuthenticated && context.mounted) {
-          await firstLogin(context);
-        } else {
-          if (context.mounted) {
-            Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const PedidosPage()));
-          }
-        }
-      } else {
-        if (context.mounted) await firstLogin(context);
+      final token = await authRepository.getValidAccessToken();
+      if ((token == null || token.isEmpty) && context.mounted) {
+        await firstLogin(context);
+      }
+
+      if (context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const PedidosPage()),
+        );
       }
     } catch (err) {
       haveError.value = true;

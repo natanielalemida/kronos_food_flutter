@@ -32,8 +32,12 @@ class OrderRepository {
     };
 
     try {
-      var response = await dio.get("$baseUrl/orders/$pedidoId",
-          options: Options(headers: updatedHeaders));
+      var response = await dio
+          .get("$baseUrl/orders/$pedidoId",
+              options: Options(headers: updatedHeaders))
+          .timeout(
+            const Duration(seconds: 15),
+          );
 
       if (response.statusCode == 200) {
         var body = response.data;
@@ -61,9 +65,12 @@ class OrderRepository {
     };
 
     try {
-      var response = await dio.post("$baseUrl/orders/$orderId/confirm",
-          options: Options(
-              headers: updatedHeaders)); // Use dio.post instead of http.post
+      var response = await dio
+          .post("$baseUrl/orders/$orderId/confirm",
+              options: Options(headers: updatedHeaders))
+          .timeout(
+            const Duration(seconds: 15),
+          ); // Use dio.post instead of http.post
 
       return response.statusCode == 202;
     } catch (e) {
@@ -85,10 +92,12 @@ class OrderRepository {
 
     var url = '$baseUrl/$action';
 
-
     try {
-      await dio.post(url,
-          options: Options(headers: updatedHeaders), data: reason);
+      await dio
+          .post(url, options: Options(headers: updatedHeaders), data: reason)
+          .timeout(
+            const Duration(seconds: 15),
+          );
 
       return true;
     } catch (e) {
@@ -98,34 +107,38 @@ class OrderRepository {
   }
 
   Future<String?> getImage(String url) async {
-  final accessToken = await _authRepository.getValidAccessToken();
-  if (accessToken == null) {
-    throw Exception("Token de acesso inválido ou expirado");
+    final accessToken = await _authRepository.getValidAccessToken();
+    if (accessToken == null) {
+      throw Exception("Token de acesso inválido ou expirado");
+    }
+
+    final updatedHeaders = {
+      "Authorization": "Bearer $accessToken",
+      "Accept": "*/*",
+    };
+
+    try {
+      final response = await dio
+          .get<List<int>>(
+            url,
+            options: Options(
+              headers: updatedHeaders,
+              responseType: ResponseType.bytes,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+          );
+
+      final Uint8List bytes = Uint8List.fromList(response.data!);
+      final String base64Str = base64Encode(bytes);
+
+      return base64Str;
+    } catch (e) {
+      print("Erro ao obter imagem em Base64: $e");
+      return null;
+    }
   }
-
-  final updatedHeaders = {
-    "Authorization": "Bearer $accessToken",
-    "Accept": "*/*", 
-  };
-
-  try {
-    final response = await dio.get<List<int>>(
-      url,
-      options: Options(
-        headers: updatedHeaders,
-        responseType: ResponseType.bytes,
-      ),
-    );
-
-    final Uint8List bytes = Uint8List.fromList(response.data!);
-    final String base64Str = base64Encode(bytes);
-
-    return base64Str;
-  } catch (e) {
-    print("Erro ao obter imagem em Base64: $e");
-    return null;
-  }
-}
 
   // Rejeitar pedido
   Future<bool> rejectOrder(
@@ -144,12 +157,16 @@ class OrderRepository {
         {"cancellationCode": cancellationCode, "observation": observation});
 
     try {
-      var response = await dio.post("$baseUrl/orders/$orderId/cancel",
-          options: Options(
-            headers: updatedHeaders,
-            contentType: 'application/json',
-          ),
-          data: body);
+      var response = await dio
+          .post("$baseUrl/orders/$orderId/cancel",
+              options: Options(
+                headers: updatedHeaders,
+                contentType: 'application/json',
+              ),
+              data: body)
+          .timeout(
+            const Duration(seconds: 15),
+          );
       return response.statusCode == 202;
     } catch (e) {
       print("Erro ao rejeitar pedido: $e");
