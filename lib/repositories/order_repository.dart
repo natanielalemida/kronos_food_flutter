@@ -6,9 +6,10 @@ import 'package:dio/dio.dart';
 import '../models/pedido_model.dart';
 // import 'package:http/http.dart' as http;
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class OrderRepository {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'OrderRepository');
   late String baseUrl;
   late String token;
   late Map<String, String> headers;

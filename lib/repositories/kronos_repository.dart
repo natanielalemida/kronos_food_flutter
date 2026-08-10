@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 // import 'package:http/http.dart' as http;
 
 class KronosRepository {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'KronosRepository');
   final PreferencesService _preferencesService = PreferencesService();
 
   dynamic _readApiField(dynamic body, String field) {

@@ -3,9 +3,10 @@ import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/delivery_tracking_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class OrderActionsService {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'OrderActionsService');
   static const String _baseUrl = "${Consts.baseUrl}/order/v1.0";
   final AuthRepository _authRepository;
   OrderActionsService(this._authRepository);

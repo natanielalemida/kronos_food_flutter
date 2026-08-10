@@ -4,9 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/merchant_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class MerchantRepository {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'MerchantRepository');
   late String baseUrl;
   late String token;
   late Map<String, String> headers;

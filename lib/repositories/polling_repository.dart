@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
+import 'package:kronos_food/utils/developer_logger.dart' as developer;
 
 import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
@@ -8,7 +8,7 @@ import 'package:kronos_food/repositories/auth_repository.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 
 class PollingRepository {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'PollingRepository');
   final AuthRepository _authRepository = AuthRepository();
 
   Future<List<EventModel>> getPolling() async {

@@ -7,6 +7,7 @@ import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/auth_controller.dart';
 import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 // import 'package:http/http.dart' as http;
 
@@ -21,7 +22,7 @@ class PrimeiroAcessoDialog extends StatefulWidget {
 }
 
 class _PrimeiroAcessoDialogState extends State<PrimeiroAcessoDialog> {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'PrimeiroAcessoDialog');
   final preferencesService = PreferencesService();
   TextEditingController authController = TextEditingController();
   int seconds = 0;

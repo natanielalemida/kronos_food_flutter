@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,8 @@ import 'package:kronos_food/repositories/auth_repository.dart';
 import 'package:kronos_food/repositories/kronos_repository.dart';
 import 'package:kronos_food/service/order_actions_service.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
+import 'package:share_plus/share_plus.dart';
 import '../controllers/pedidos_controller.dart';
 import 'package:kronos_food/components/order_list_section.dart';
 import 'package:kronos_food/components/order_details.dart';
@@ -41,6 +44,7 @@ class _PedidosPageState extends State<PedidosPage> {
   bool _autoAccept = false;
   bool _autoPrint = false;
   bool _kanbanMode = false;
+  bool _isSharingLogs = false;
   final PreferencesService _preferencesService = PreferencesService();
   final OrderActionsService _orderActionsService =
       OrderActionsService(AuthRepository());
@@ -97,6 +101,87 @@ class _PedidosPageState extends State<PedidosPage> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
+  }
+
+  Future<void> _shareLogs() async {
+    if (_isSharingLogs) return;
+
+    setState(() {
+      _isSharingLogs = true;
+    });
+
+    try {
+      await AppLogger.info(
+        'Compartilhamento do arquivo de logs solicitado.',
+        category: 'DIAGNOSTICS',
+        status: 'SHARE_REQUESTED',
+      );
+      await AppLogger.flush();
+
+      final logPath = await AppLogger.logPath;
+      final logFile = File(logPath);
+      if (!await logFile.exists() || await logFile.length() == 0) {
+        throw const FileSystemException(
+          'O arquivo de logs ainda não foi criado.',
+        );
+      }
+
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          title: 'Compartilhar logs do Kronos Food',
+          subject: 'Logs de diagnóstico do Kronos Food',
+          text: 'Arquivo de diagnóstico gerado pelo Kronos Food.',
+          files: [XFile(logPath, mimeType: 'text/plain')],
+        ),
+      );
+
+      await AppLogger.status(
+        'Painel de compartilhamento de logs finalizado.',
+        category: 'DIAGNOSTICS',
+        status: 'SHARE_${result.status.name.toUpperCase()}',
+        data: {'shareResult': result.status.name},
+      );
+
+      if (!mounted) return;
+      if (result.status == ShareResultStatus.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Logs compartilhados com sucesso.')),
+        );
+      } else if (result.status == ShareResultStatus.unavailable &&
+          Platform.isWindows) {
+        await Process.run('explorer.exe', ['/select,', logPath]);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'O compartilhamento não está disponível. O arquivo foi selecionado no Explorer.',
+            ),
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      await AppLogger.error(
+        'Falha ao compartilhar o arquivo de logs.',
+        category: 'DIAGNOSTICS',
+        status: 'SHARE_ERROR',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível compartilhar os logs.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharingLogs = false;
+        });
+      }
+    }
   }
 
   void _handleOrderActionComplete(PedidoModel? order) {
@@ -569,6 +654,21 @@ class _PedidosPageState extends State<PedidosPage> {
                     },
                     secondary: const Icon(Icons.view_kanban_outlined),
                     activeThumbColor: Consts.primaryColor,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.share_outlined),
+                    title: const Text('Compartilhar logs'),
+                    subtitle: const Text('Enviar arquivo de diagnóstico'),
+                    trailing: _isSharingLogs
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chevron_right),
+                    enabled: !_isSharingLogs,
+                    onTap: _isSharingLogs ? null : _shareLogs,
                   ),
                 ],
               ),

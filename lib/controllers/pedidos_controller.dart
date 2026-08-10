@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as developer;
+import 'package:kronos_food/utils/developer_logger.dart' as developer;
 import 'package:flutter/material.dart';
 import 'package:kronos_food/models/print_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -1,7 +1,9 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:kronos_food/models/event_model.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class PedidoModel {
   String id;
@@ -22,14 +24,32 @@ class PedidoModel {
   Payments payments;
   List<AdditionalFee> additionalFees;
   AdditionalInfo additionalInfo;
-  String status;
+  String _status;
+  String get status => _status;
+  set status(String value) {
+    final previousStatus = _status;
+    _status = value;
+    unawaited(
+      AppLogger.status(
+        'Status do pedido atualizado.',
+        category: 'ORDER',
+        status: value,
+        data: {
+          'orderId': id,
+          'displayId': displayId,
+          'previousStatus': previousStatus,
+          'newStatus': value,
+          'changed': previousStatus != value,
+        },
+      ),
+    );
+  }
   Schedule schedule;
   DisputeMetadata? metadata;
   List<EventModel> events = [];
   set statusCode(String statusCode) {
     if (statusCode.toUpperCase().contains('CAN') ||
         statusCode.toUpperCase().contains('CANCEL')) {
-      print('🔴 Status do pedido $id definido como CANCELADO via setter');
       status = 'CAN'; // Definir código consistente
     } else {
       status = statusCode;
@@ -54,12 +74,26 @@ class PedidoModel {
     required this.payments,
     required this.additionalFees,
     required this.additionalInfo,
-    required this.status,
+    required String status,
     required this.events,
     required this.schedule,
     this.metadata,
     this.benefits = const [],
-  });
+  }) : _status = status {
+    unawaited(
+      AppLogger.status(
+        'Pedido carregado no aplicativo.',
+        category: 'ORDER',
+        status: status,
+        data: {
+          'orderId': id,
+          'displayId': displayId,
+          'initialStatus': status,
+          'salesChannel': salesChannel,
+        },
+      ),
+    );
+  }
 
   factory PedidoModel.fromKronos(Map<String, dynamic> json) {
     return PedidoModel(

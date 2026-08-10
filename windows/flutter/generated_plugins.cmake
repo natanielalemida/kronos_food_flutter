@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   printing
   screen_retriever_windows
+  share_plus
   url_launcher_windows
   webview_windows
   window_manager

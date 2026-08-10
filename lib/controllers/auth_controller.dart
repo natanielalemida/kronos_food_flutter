@@ -10,7 +10,7 @@ import 'package:kronos_food/service/preferences_service.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 
 class AuthController extends ChangeNotifier {
-  final dio = Dio();
+  final dio = AppLogger.createDio(source: 'AuthController');
   static final AuthController _instance = AuthController._internal();
   AuthController._internal();
   factory AuthController() {

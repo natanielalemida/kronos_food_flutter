@@ -2,9 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class AuthRepository {
-  final Dio dio = Dio();
+  final Dio dio = AppLogger.createDio(source: 'AuthRepository');
   final PreferencesService _preferencesService = PreferencesService();
   final MainController _mainController = MainController();
 

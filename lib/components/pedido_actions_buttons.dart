@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import 'package:kronos_food/utils/developer_logger.dart' as developer;
 import 'package:flutter/material.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/event_model.dart';

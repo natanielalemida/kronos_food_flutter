@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/utils/app_logger.dart';
 
 class ConfigPage extends StatefulWidget {
   const ConfigPage({super.key});
@@ -122,8 +123,9 @@ class _ConfigPageState extends State<ConfigPage> {
     });
 
     try {
-      final dio = Dio(
-        BaseOptions(
+      final dio = AppLogger.createDio(
+        source: 'ConfigPage.connectionTest',
+        options: BaseOptions(
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
           sendTimeout: const Duration(seconds: 10),
