@@ -1,13 +1,63 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/service/preferences_service.dart';
+import 'package:kronos_food/service/ifood_credential_store.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 
 class AuthRepository {
-  final Dio dio = AppLogger.createDio(source: 'AuthRepository');
-  final PreferencesService _preferencesService = PreferencesService();
+  final Dio dio;
+  final PreferencesService _preferencesService;
   final MainController _mainController = MainController();
+  final String clientId;
+  final String clientSecret;
+  final String? Function(String) _readClientSecret;
+  final bool distributed;
+  static final Map<String, Future<String?>> _pendingRenewals = {};
+
+  AuthRepository({
+    Dio? client,
+    PreferencesService? preferences,
+    this.clientId = Consts.clientId,
+    this.clientSecret = Consts.clientSecret,
+    String? Function(String)? readClientSecret,
+    this.distributed = Consts.ifoodAuthMode == 'distributed',
+  })  : dio = client ?? _createAuthClient(),
+        _readClientSecret =
+            readClientSecret ?? IfoodCredentialStore.readClientSecret,
+        _preferencesService = preferences ?? PreferencesService();
+
+  static Dio _createAuthClient() {
+    final client = AppLogger.createDio(
+      source: 'AuthRepository',
+      options: BaseOptions(
+        followRedirects: false,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 20),
+      ),
+    );
+    client.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () =>
+          HttpClient()..badCertificateCallback = (_, __, ___) => false,
+    );
+    return client;
+  }
+
+  String _requireCredentials() {
+    final secret = clientSecret.isNotEmpty
+        ? clientSecret
+        : (clientId.isEmpty ? null : _readClientSecret(clientId));
+    if (clientId.trim().isEmpty || secret == null || secret.trim().isEmpty) {
+      throw StateError(
+        'A integração iFood ainda não foi configurada nesta versão do Food. '
+        'Informe as credenciais do aplicativo antes de conectar a loja.',
+      );
+    }
+    return secret;
+  }
 
   Future<Map<String, dynamic>> getConfig() async {
     return await _preferencesService.getConfig();
@@ -33,18 +83,40 @@ class AuthRepository {
       return currentToken;
     }
 
+    final pending = _pendingRenewals[clientId];
+    if (pending != null) return pending;
+    final renewal = _renewToken();
+    _pendingRenewals[clientId] = renewal;
     try {
-      final tokenData = await authenticateWithClientCredentials();
+      return await renewal;
+    } finally {
+      if (identical(_pendingRenewals[clientId], renewal)) {
+        _pendingRenewals.remove(clientId);
+      }
+    }
+  }
+
+  Future<String?> _renewToken() async {
+    try {
+      final refreshToken = await _preferencesService.getRefreshToken();
+      if (distributed && (refreshToken == null || refreshToken.isEmpty)) {
+        return null;
+      }
+      final tokenData = refreshToken != null && refreshToken.isNotEmpty
+          ? await authenticate(true, '', '', refreshToken)
+          : await authenticateWithClientCredentials();
       await saveConfig(tokenData);
       _mainController.setConfig(tokenData);
       return tokenData['accessToken'];
     } catch (e) {
-      print("Erro ao atualizar token: $e");
+      await AppLogger.warning('Não foi possível renovar o acesso ao iFood.',
+          category: 'IFOOD_AUTH', error: e);
       return null;
     }
   }
 
   Future<Map<String, dynamic>> getUserCode() async {
+    _requireCredentials();
     final response = await dio.post(
       "${Consts.authUrl}/oauth/userCode",
       options: Options(
@@ -53,7 +125,7 @@ class AuthRepository {
         },
       ),
       data: {
-        'clientId': Consts.clientId,
+        'clientId': clientId,
       },
     );
 
@@ -65,6 +137,12 @@ class AuthRepository {
   }
 
   Future<Map<String, dynamic>> authenticateWithClientCredentials() async {
+    final secret = _requireCredentials();
+    if (distributed) {
+      throw StateError(
+        'Autorize o aplicativo no Portal do Parceiro iFood para conectar a loja.',
+      );
+    }
     final response = await dio.post(
       "${Consts.authUrl}/oauth/token",
       options: Options(
@@ -74,8 +152,8 @@ class AuthRepository {
       ),
       data: {
         'grantType': "client_credentials",
-        'clientId': Consts.clientId,
-        'clientSecret': Consts.clientSecret,
+        'clientId': clientId,
+        'clientSecret': secret,
       },
     );
 
@@ -88,14 +166,15 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> authenticate(bool isRefresh, String authCode,
       String verifyCode, String refreshToken) async {
+    final secret = _requireCredentials();
     if (isRefresh && refreshToken.isEmpty) {
       return authenticateWithClientCredentials();
     }
 
     final body = <String, dynamic>{
       'grantType': isRefresh ? "refresh_token" : "authorization_code",
-      'clientId': Consts.clientId,
-      'clientSecret': Consts.clientSecret,
+      'clientId': clientId,
+      'clientSecret': secret,
     };
 
     if (isRefresh) {
@@ -116,7 +195,11 @@ class AuthRepository {
     );
 
     if (response.statusCode == 200) {
-      return _normalizeTokenData(response.data);
+      final tokens = _normalizeTokenData(response.data);
+      if (isRefresh && !tokens.containsKey('refreshToken')) {
+        tokens['refreshToken'] = refreshToken;
+      }
+      return tokens;
     } else {
       throw Exception(response.data);
     }

@@ -2,13 +2,74 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:kronos_food/models/pedido_model.dart';
+import 'package:kronos_food/service/kronos_pending_sync_service.dart';
+import 'package:kronos_food/service/kronos_sync_guard.dart';
 import 'package:kronos_food/service/preferences_service.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 // import 'package:http/http.dart' as http;
 
 class KronosRepository {
+  static bool _retryInProgress = false;
   final dio = AppLogger.createDio(source: 'KronosRepository');
   final PreferencesService _preferencesService = PreferencesService();
+  final KronosPendingSyncService _pendingSync = KronosPendingSyncService();
+
+  Future<void> retryPendingSync() async {
+    if (_retryInProgress) return;
+    _retryInProgress = true;
+
+    try {
+      for (final operation in const ['create', 'finalize']) {
+        final pedidos = await _pendingSync.getPending(operation);
+        for (final pedido in pedidos) {
+          try {
+            if (operation == 'create') {
+              await savePedidoToKronos(pedido);
+            } else {
+              await sendConfirmar(pedido);
+            }
+          } catch (e, stackTrace) {
+            await AppLogger.warning(
+              'Sincronizacao pendente com Kronos sera tentada novamente.',
+              error: e,
+              stackTrace: stackTrace,
+              data: {'operation': operation, 'orderId': pedido.id},
+            );
+          }
+        }
+      }
+    } finally {
+      _retryInProgress = false;
+    }
+  }
+
+  Future<bool> _runIdempotent(
+    String operation,
+    String orderId,
+    Future<bool> Function() request,
+  ) async {
+    final shouldRun = await KronosSyncGuard.tryStart(operation, orderId);
+    if (!shouldRun) {
+      await AppLogger.info(
+        'Operacao Kronos ignorada porque ja foi concluida ou esta em andamento.',
+        data: {'operation': operation, 'orderId': orderId},
+      );
+      return true;
+    }
+
+    try {
+      final success = await request();
+      if (success) {
+        await KronosSyncGuard.markSucceeded(operation, orderId);
+      } else {
+        KronosSyncGuard.release(operation, orderId);
+      }
+      return success;
+    } catch (_) {
+      KronosSyncGuard.release(operation, orderId);
+      rethrow;
+    }
+  }
 
   dynamic _readApiField(dynamic body, String field) {
     if (body is! Map) return null;
@@ -232,12 +293,88 @@ class KronosRepository {
   }
 
   Future<bool> sendConfirmar(PedidoModel pedido) async {
-    try {
+    const operation = 'finalize';
+    await _pendingSync.enqueue(operation, pedido);
+    final success = await _runIdempotent(operation, pedido.id, () async {
+      try {
+        final kronosToken = await _preferencesService.getKronosToken() ?? "";
+
+        final company = await _preferencesService.getCompanyCode() ?? "";
+
+        final terminal = await _preferencesService.getTerminalCode() ?? "";
+        final serverIp =
+            await _preferencesService.getServerIp() ?? "http://localhost:5000";
+        // final companyCode = await _preferencesService.getCompanyCode() ?? "";
+        final headers = {
+          'Content-Type': 'application/json',
+          'Auth': kronosToken,
+          'Empresa': company,
+          'Terminal': terminal,
+          'Idempotency-Key': 'ifood-finalize-${pedido.id}',
+        };
+
+        final codigoCaixaMovimento = await _getCodigoCaixaMovimento(
+          serverIp: serverIp,
+          headers: headers,
+        );
+
+        final url = '$serverIp/delivery/pedido/finalizar';
+        var body = {
+          "IdPedidos": [pedido.id],
+          "CodigoCaixaMovimento": codigoCaixaMovimento,
+          "DataHora": DateTime.now().toIso8601String()
+        };
+        final response = await dio
+            .put(
+              url,
+              options: Options(
+                headers: headers,
+              ),
+              data: body,
+            )
+            .timeout(
+              const Duration(seconds: 30),
+            );
+        if (response.statusCode == 200) {
+          var data = response.data;
+          if (!_isOne(_readApiField(data, 'Status'))) {
+            final message = _messageFromResponse(data);
+            if (_isAlreadyProcessedSaleMessage(message)) {
+              return true;
+            }
+            throw Exception('Erro ao finalizar pedido no Kronos: $message');
+          }
+          return true;
+        } else {
+          throw Exception(
+              'Falha ao finalizar pedido no Kronos: ${response.statusCode}');
+        }
+      } on DioException catch (e) {
+        final message = _messageFromDioError(e);
+        if (_isAlreadyProcessedSaleMessage(message)) {
+          return true;
+        }
+        throw Exception('Erro ao finalizar pedido no Kronos: $message');
+      }
+    });
+    if (success) await _pendingSync.remove(operation, pedido.id);
+    return success;
+  }
+
+  Future<bool> cancelarPedido(String? id, String reason) async {
+    final orderId = id?.trim() ?? '';
+    if (orderId.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'Pedido sem identificador externo');
+    }
+    return _runIdempotent('cancel', orderId, () async {
       final kronosToken = await _preferencesService.getKronosToken() ?? "";
 
       final company = await _preferencesService.getCompanyCode() ?? "";
 
       final terminal = await _preferencesService.getTerminalCode() ?? "";
+
+      final codeUser = await _preferencesService.getCodeUser();
+
       final serverIp =
           await _preferencesService.getServerIp() ?? "http://localhost:5000";
       // final companyCode = await _preferencesService.getCompanyCode() ?? "";
@@ -245,20 +382,17 @@ class KronosRepository {
         'Content-Type': 'application/json',
         'Auth': kronosToken,
         'Empresa': company,
-        'Terminal': terminal
+        'Terminal': terminal,
+        'Idempotency-Key': 'ifood-cancel-$orderId',
       };
 
-      final codigoCaixaMovimento = await _getCodigoCaixaMovimento(
-        serverIp: serverIp,
-        headers: headers,
-      );
-
-      final url = '$serverIp/delivery/pedido/finalizar';
+      final url = '$serverIp/delivery/pedido/cancelar';
       var body = {
-        "IdPedidos": [pedido.id],
-        "CodigoCaixaMovimento": codigoCaixaMovimento,
-        "DataHora": DateTime.now().toIso8601String()
+        "IdPedido": orderId,
+        "Justificativa": reason,
+        "CodigoResponsavelOperacao": int.parse(codeUser!),
       };
+
       final response = await dio
           .put(
             url,
@@ -268,78 +402,19 @@ class KronosRepository {
             data: body,
           )
           .timeout(
-            const Duration(seconds: 30),
+            const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
         var data = response.data;
-        if (!_isOne(_readApiField(data, 'Status'))) {
-          final message = _messageFromResponse(data);
-          if (_isAlreadyProcessedSaleMessage(message)) {
-            return true;
-          }
-          throw Exception('Erro ao finalizar pedido no Kronos: $message');
+        if (data['Status'] != 1) {
+          throw Exception('Erro na resposta: ${data['mensagens'][0]}');
         }
         return true;
       } else {
         throw Exception(
-            'Falha ao finalizar pedido no Kronos: ${response.statusCode}');
+            'Falha ao adicionar pedido ao cache: ${response.statusCode}');
       }
-    } on DioException catch (e) {
-      final message = _messageFromDioError(e);
-      if (_isAlreadyProcessedSaleMessage(message)) {
-        return true;
-      }
-      throw Exception('Erro ao finalizar pedido no Kronos: $message');
-    }
-  }
-
-  Future<bool> cancelarPedido(String? id, String reason) async {
-    final kronosToken = await _preferencesService.getKronosToken() ?? "";
-
-    final company = await _preferencesService.getCompanyCode() ?? "";
-
-    final terminal = await _preferencesService.getTerminalCode() ?? "";
-
-    final codeUser = await _preferencesService.getCodeUser();
-
-    final serverIp =
-        await _preferencesService.getServerIp() ?? "http://localhost:5000";
-    // final companyCode = await _preferencesService.getCompanyCode() ?? "";
-    final headers = {
-      'Content-Type': 'application/json',
-      'Auth': kronosToken,
-      'Empresa': company,
-      'Terminal': terminal
-    };
-
-    final url = '$serverIp/delivery/pedido/cancelar';
-    var body = {
-      "IdPedido": id,
-      "Justificativa": reason,
-      "CodigoResponsavelOperacao": int.parse(codeUser!),
-    };
-
-    final response = await dio
-        .put(
-          url,
-          options: Options(
-            headers: headers,
-          ),
-          data: body,
-        )
-        .timeout(
-          const Duration(seconds: 10),
-        );
-    if (response.statusCode == 200) {
-      var data = response.data;
-      if (data['Status'] != 1) {
-        throw Exception('Erro na resposta: ${data['mensagens'][0]}');
-      }
-      return true;
-    } else {
-      throw Exception(
-          'Falha ao adicionar pedido ao cache: ${response.statusCode}');
-    }
+    });
   }
 
   Future<bool> addPedidoToCache(PedidoModel pedido) async {
@@ -378,41 +453,48 @@ class KronosRepository {
   }
 
   Future<bool> savePedidoToKronos(PedidoModel pedido) async {
-    final kronosToken = await _preferencesService.getKronosToken() ?? "";
-    final serverIp =
-        await _preferencesService.getServerIp() ?? "http://localhost:5000";
-    final codigoEmpresa = await _preferencesService.getCompanyCode() ?? "1";
-    // Construir a URL para a
-    // final companyCode = await _preferencesService.getCompanyCode() ?? "";
-    final headers = {
-      'Content-Type': 'application/json',
-      'codigoTerminal': '1',
-      'Empresa': codigoEmpresa,
-      'Auth': kronosToken,
-    };
+    const operation = 'create';
+    await _pendingSync.enqueue(operation, pedido);
+    final success = await _runIdempotent(operation, pedido.id, () async {
+      final kronosToken = await _preferencesService.getKronosToken() ?? "";
+      final serverIp =
+          await _preferencesService.getServerIp() ?? "http://localhost:5000";
+      final codigoEmpresa = await _preferencesService.getCompanyCode() ?? "1";
+      // Construir a URL para a
+      // final companyCode = await _preferencesService.getCompanyCode() ?? "";
+      final headers = {
+        'Content-Type': 'application/json',
+        'codigoTerminal': '1',
+        'Empresa': codigoEmpresa,
+        'Auth': kronosToken,
+        'Idempotency-Key': 'ifood-create-${pedido.id}',
+      };
 
-    final url = '$serverIp/delivery/externo/pedidos';
-    var body = pedido.toJson();
-    final response = await dio
-        .post(
-          url,
-          options: Options(
-            headers: headers,
-          ),
-          data: body,
-        )
-        .timeout(
-          const Duration(seconds: 10),
-        );
-    if (response.statusCode == 200) {
-      var data = response.data;
-      if (data['Status'] != 1) {
-        throw Exception('Erro na resposta: ${data['mensagens'][0]}');
+      final url = '$serverIp/delivery/externo/pedidos';
+      var body = pedido.toJson();
+      final response = await dio
+          .post(
+            url,
+            options: Options(
+              headers: headers,
+            ),
+            data: body,
+          )
+          .timeout(
+            const Duration(seconds: 10),
+          );
+      if (response.statusCode == 200) {
+        var data = response.data;
+        if (data['Status'] != 1) {
+          throw Exception('Erro na resposta: ${data['mensagens'][0]}');
+        }
+        return true;
+      } else {
+        throw Exception(
+            'Falha ao salvar pedido no Kronos: ${response.statusCode}');
       }
-      return true;
-    } else {
-      throw Exception(
-          'Falha ao salvar pedido no Kronos: ${response.statusCode}');
-    }
+    });
+    if (success) await _pendingSync.remove(operation, pedido.id);
+    return success;
   }
 }

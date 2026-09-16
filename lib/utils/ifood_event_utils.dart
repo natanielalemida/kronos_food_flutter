@@ -1,4 +1,9 @@
 class IfoodEventUtils {
+  static const Set<String> placedEvents = {
+    'PLC',
+    'PLACED',
+  };
+
   static const Set<String> readyEvents = {
     'RTP',
     'READY',
@@ -14,13 +19,21 @@ class IfoodEventUtils {
   };
 
   static const Set<String> waitingDriverEvents = {
+    'ADR',
+    'GTO',
+    'AAO',
+    'DPCR',
     'ASSIGN_DRIVER',
     'GOING_TO_ORIGIN',
     'ARRIVED_AT_ORIGIN',
     'DELIVERY_GROUP_ASSIGNED',
+    'DELIVERY_PICKUP_CODE_REQUESTED',
   };
 
   static const Set<String> inRouteEvents = {
+    'CLT',
+    'AAD',
+    'DDCS',
     'DSP',
     'DISPATCHED',
     'IN_DELIVERY',
@@ -29,6 +42,7 @@ class IfoodEventUtils {
     'GOING_TO_DESTINATION',
     'COLLECTED',
     'ARRIVED_AT_DESTINATION',
+    'DELIVERY_DROP_CODE_VALIDATION_SUCCESS',
     'DELIVERY_RETURNING_TO_ORIGIN',
     'DELIVERY_RETURNED_TO_ORIGIN',
     'DELIVERY_RETURN_CODE_REQUESTED',
@@ -58,6 +72,9 @@ class IfoodEventUtils {
   };
 
   static String normalize(String code) => code.trim().toUpperCase();
+
+  static bool isPlacedEvent(String code) =>
+      placedEvents.contains(normalize(code));
 
   static bool isReadyEvent(String code) =>
       readyEvents.contains(normalize(code));

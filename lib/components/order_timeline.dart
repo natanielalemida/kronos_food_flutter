@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'food_order_progress.dart';
+import 'darcapio/order_style.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/models/pedido_model.dart';
@@ -14,120 +16,18 @@ class OrderTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timelineStates = _getTimelineStates();
-    final itemCount =
-        timelineStates.length > 1 ? timelineStates.length * 2 - 1 : 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16, bottom: 8),
-          child: Text(
-            'Status do Pedido',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              SizedBox(
-                height: 106,
-                child: Row(
-                  children: List.generate(itemCount, (index) {
-                    if (index % 2 == 0) {
-                      final state = timelineStates[index ~/ 2];
-                      final time = state.time;
-
-                      return Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: state.color,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: state.color.withValues(alpha: 0.30),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ],
-                              ),
-                              child: Icon(
-                                state.icon,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Flexible(
-                              child: Text(
-                                state.title,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: state.color,
-                                ),
-                              ),
-                            ),
-                            if (time != null)
-                              Text(
-                                _formatTime(time),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: state.color,
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    final lineIndex = index ~/ 2;
-                    final color = timelineStates[lineIndex].color;
-
-                    return Expanded(
-                      child: Container(
-                        height: 3,
-                        margin: const EdgeInsets.only(bottom: 44),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(height: 12),
-              AnimatedProgressIndicator(value: _calculateProgress()),
-            ],
-          ),
-        ),
-      ],
+    final states = _getTimelineStates();
+    return FoodOrderProgress(
+      progress: _calculateProgress(),
+      cancelled: states.any((state) => state.title == 'Pedido Cancelado'),
+      steps: states
+          .map((state) => FoodOrderProgressStep(
+                label: state.title,
+                icon: state.icon,
+                color: state.color,
+                time: state.time,
+              ))
+          .toList(),
     );
   }
 
@@ -211,7 +111,7 @@ class OrderTimeline extends StatelessWidget {
         title: 'Pedido Recebido',
         time: order.createdAt,
         icon: Icons.receipt,
-        color: Colors.orange,
+        color: OrderStyle.statusColor('recebido_erp'),
       ),
     ];
 
@@ -221,7 +121,7 @@ class OrderTimeline extends StatelessWidget {
           title: 'Pedido Confirmado',
           time: confirmedEvent?.createdAt,
           icon: Icons.check_circle,
-          color: Colors.blue,
+          color: OrderStyle.statusColor('aceito'),
         ),
       );
     }
@@ -235,7 +135,7 @@ class OrderTimeline extends StatelessWidget {
           ),
           time: readyEvent?.createdAt,
           icon: Icons.shopping_bag_outlined,
-          color: Colors.teal,
+          color: OrderStyle.statusColor('pronto_entrega'),
         ),
       );
     }
@@ -248,7 +148,7 @@ class OrderTimeline extends StatelessWidget {
               : 'Pedido Despachado',
           time: dispatchedEvent?.createdAt,
           icon: Icons.delivery_dining,
-          color: Colors.purple,
+          color: OrderStyle.statusColor('saiu_para_entrega'),
         ),
       );
     }
@@ -270,16 +170,16 @@ class OrderTimeline extends StatelessWidget {
           title: 'Pedido Cancelado',
           time: cancelledEvent?.createdAt,
           icon: Icons.cancel_outlined,
-          color: Colors.redAccent,
+          color: OrderStyle.statusColor('cancelado'),
         ),
       );
     } else if (concludedEvent != null || status == Consts.statusConcluded) {
       states.add(
         _TimelineState(
-          title: 'Pedido Concluido',
+          title: 'Pedido Concluído',
           time: concludedEvent?.createdAt,
           icon: Icons.check_circle_outline,
-          color: Colors.green,
+          color: OrderStyle.statusColor('concluido'),
         ),
       );
     }
@@ -326,11 +226,6 @@ class OrderTimeline extends StatelessWidget {
       status == Consts.statusDispatched ||
       status == Consts.statusConcluded ||
       IfoodEventUtils.isInRouteEvent(status);
-
-  String _formatTime(DateTime dateTime) {
-    dateTime = dateTime.toLocal();
-    return "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-  }
 }
 
 class _TimelineState {
@@ -345,47 +240,4 @@ class _TimelineState {
     required this.icon,
     required this.color,
   });
-}
-
-class AnimatedProgressIndicator extends StatelessWidget {
-  final double value;
-
-  const AnimatedProgressIndicator({super.key, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 8,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeInOut,
-                height: 8,
-                width: constraints.maxWidth * value,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Consts.primaryColor.withValues(alpha: .1),
-                      Consts.primaryColor
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }

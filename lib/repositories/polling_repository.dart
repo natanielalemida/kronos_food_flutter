@@ -5,23 +5,38 @@ import 'package:dio/dio.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/service/preferences_service.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 
 class PollingRepository {
   final dio = AppLogger.createDio(source: 'PollingRepository');
   final AuthRepository _authRepository = AuthRepository();
+  final PreferencesService _preferencesService = PreferencesService();
+  bool lastRequestSucceeded = false;
+  int? lastStatusCode;
 
   Future<List<EventModel>> getPolling() async {
+    lastRequestSucceeded = false;
+    lastStatusCode = null;
     try {
       final accessToken = await _authRepository.getValidAccessToken();
       if (accessToken == null) {
         throw Exception("Token de acesso invalido ou expirado");
       }
 
-      final headers = {
+      final merchantId =
+          (await _preferencesService.getIfoodMerchantId()).trim();
+      final headers = <String, String>{
         "Authorization": "Bearer $accessToken",
         'Content-type': 'application/json',
       };
+      if (merchantId.isNotEmpty) {
+        headers['x-polling-merchants'] = merchantId;
+      } else {
+        await AppLogger.error(
+          'Polling iFood iniciado sem merchant configurado.',
+        );
+      }
 
       final response = await dio
           .get(
@@ -33,10 +48,13 @@ class PollingRepository {
           );
 
       if (response.statusCode == 204) {
+        lastRequestSucceeded = true;
+        lastStatusCode = response.statusCode;
         return [];
       }
 
       if (response.statusCode != 200) {
+        lastStatusCode = response.statusCode;
         developer
             .log("Erro no polling: ${response.statusCode} - ${response.data}");
         await AppLogger.error(
@@ -49,6 +67,9 @@ class PollingRepository {
         throw Exception("Falha no polling: ${response.statusCode}");
       }
 
+      lastRequestSucceeded = true;
+      lastStatusCode = response.statusCode;
+
       final body = _parseEventsBody(response.data);
       final events = body
           .whereType<Map>()
@@ -58,7 +79,7 @@ class PollingRepository {
       developer.log("Eventos recebidos: ${events.length}");
 
       if (events.isNotEmpty) {
-        await AppLogger.error(
+        await AppLogger.info(
           'Polling iFood retornou eventos.',
           data: {
             'statusCode': response.statusCode,

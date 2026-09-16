@@ -1,3 +1,91 @@
+## Gestão de entregadores
+
+O menu **Entregadores** e o atalho de moto no cabeçalho dos pedidos abrem a gestão
+de acesso ao Kronos Entregador. Administradores podem gerar/copiar convites e
+encerrar o acesso de um celular, além de consultar entregas em andamento e o
+estado do compartilhamento de localização. Cada convite vale 15 minutos e é de
+uso único; gerar outro invalida o anterior. O cadastro dos nomes continua no ERP.
+
+O fluxo é Food → Kronos Service → Darcapio, com a sessão Food existente e validação
+de administrador nos servidores. Os três componentes precisam estar atualizados;
+a loja precisa de domínio público HTTPS ativo e verificado para emitir convites.
+Verificação: `flutter test test/courier_management_test.dart`.
+Relatório: `E:/ARC-SOLUTION/docs/kronos-food-entregadores-20260915.md`.
+
+## Pedidos integrados no Kronos Food
+
+O botão **Entrar** autentica no Kronos Food e já libera o Darcapio com a mesma
+sessão. Não há botão nem formulário de login separado para o Darcapio. Pedidos
+iFood e Darcapio aparecem juntos, agrupados por etapa, tanto na lista quanto no
+kanban. Cada cartão e seus detalhes têm uma etiqueta de origem. Busca e filtros
+consideram os dois canais; a identidade inclui a origem para evitar colisões.
+As conexões atualizam independentemente, com seu estado no cabeçalho. Uma falha
+em um canal não bloqueia o outro. Detalhes e ações usam o contrato de cada origem;
+pedidos Darcapio nunca são enviados às ações ou automações do iFood.
+
+“Novos pedidos” contém apenas pedidos aguardando aceite. A modalidade
+“Entrega no endereço” ou “Retirada na loja” aparece separada do status no cartão.
+Pedidos prontos e pedidos que saíram para entrega ficam nas respectivas colunas,
+atualizadas também quando a etapa muda fora do Food.
+
+O pedido concluído pelo cliente no Darcapio é sincronizado uma única vez para o
+ERP como um Delivery vinculado a uma pré-venda não faturada. O Food só o recebe
+depois dessa confirmação. Aceite, preparo, pronto e conclusão atualizam as
+etapas desse mesmo Delivery e retornam a situação ao Darcapio; não criam outra
+venda, não faturam e não lançam movimento financeiro.
+
+Configuração da fixture local: servidor `https://localhost:5943/arc`, empresa `1`
+(Loja A) ou `2` (Loja B), terminal `91001` e usuário ERP `darcapio.local`, com a
+senha local já configurada. O certificado HTTPS precisa ser confiável. O cliente
+Darcapio não ignora erros TLS e não segue redirecionamentos. Fora de localhost,
+HTTP sem TLS é rejeitado. A integração reutiliza o token do Food nas preferências
+existentes; não lê nem armazena uma senha adicional.
+
+O servidor exige sessão da aplicação Kronos Food 2 (9), empresa e permissões de
+Delivery. As ações vêm em `AcoesPermitidas`, calculadas pelo Kronos Service,
+incluindo entrega e retirada. O cliente envia o comando, versão e, quando
+solicitado, o código digitado pelo operador. A validação do código e das etapas
+ocorre no Service. Conclusão não fatura nem registra pagamento.
+Endereço, taxa e troco são exibidos no pedido. O código correto nunca vem na
+listagem Food. Recusa/cancelamento neste painel ainda não está implementado.
+
+Verificação: `flutter test test/food_orders_page_test.dart test/food_login_test.dart test/darcapio_test.dart` e análise dos arquivos
+`lib/repositories/darcapio_repository.dart` e `lib/pages/food_orders_view.dart`.
+O relatório atualizado está em `E:/ARC-SOLUTION/docs/darcapio-entrega-admin-20260911.md`.
+
+## Autenticação iFood
+
+O ID da loja identifica o estabelecimento; a autenticação também depende das
+credenciais e do tipo do aplicativo iFood. Configure `IFOOD_CLIENT_ID` na
+compilação. No Windows, instale o segredo no Gerenciador de Credenciais do
+usuário, como credencial genérica `KronosFood/iFood/<clientId>`, com o Client ID
+como usuário e o segredo como conteúdo UTF-16. A build pode ser gerada sem
+`IFOOD_CLIENT_SECRET`; o suporte ao define anterior é mantido por compatibilidade.
+Não inclua arquivos de credenciais ou tokens no pacote distribuído. A conexão
+OAuth valida o certificado TLS e não segue redirecionamentos.
+
+Para instalar a partir de uma `PSCredential` salva com `Export-Clixml`, execute
+`tool/install_ifood_windows_credential.ps1 -CredentialXmlPath <arquivo-local>`
+com o mesmo usuário que salvou o arquivo. Confira a leitura sem exibir o segredo
+com `dart run tool/check_ifood_windows_credential.dart <clientId>`.
+
+`IFOOD_AUTH_MODE=centralized` mantém o fluxo `client_credentials`. Para aplicativos
+distribuídos, use `IFOOD_AUTH_MODE=distributed`: o primeiro acesso depende do
+código autorizado no Portal do Parceiro. O código retornado pelo portal e o
+verificador da mesma solicitação são trocados por tokens; informar somente o ID
+da loja não realiza essa troca. A autorização inicial ainda não está integrada
+à tela de configurações e precisa ser provisionada na instalação.
+
+Depois de salvar a autorização, o Food reutiliza o token válido e renova com
+`refresh_token` quando ele está próximo de expirar. Consultas simultâneas
+compartilham a renovação em andamento. Se o iFood não devolver outro refresh
+token, o anterior é preservado. Não há fallback para `client_credentials` no
+modo distribuído sem autorização.
+
+Verificação: `flutter test test/ifood_auth_repository_test.dart test/food_login_test.dart`.
+
+## Integração iFood — requisitos anteriores
+
 ## O aplicativo deve ser capaz de:
 - [x] Receber eventos de pedidos via polling ou via webhook.
 No caso do polling:

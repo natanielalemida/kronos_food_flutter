@@ -95,14 +95,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _login() async {
+    if (_isLoading || !_serverConfigured) return;
+
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
         final loginSuccessful = await _authController.loginUser(
-            context, _usernameController.text, _passwordController.text);
+            _usernameController.text, _passwordController.text);
 
         if (loginSuccessful == true && mounted) {
+          _passwordController.clear();
           final caixaAberto = await _authController.getCodCaixa(context);
           if (caixaAberto == false) {
             _preencherDataHoraAtual();

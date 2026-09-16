@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'food_order_brand.dart';
 import 'package:kronos_food/utils/developer_logger.dart' as developer;
 import 'package:flutter/material.dart';
 import 'package:kronos_food/consts.dart';
@@ -121,26 +122,6 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     return null;
   }
 
-  String _merchantDeliveryNotice(PedidoModel pedido) {
-    final status = IfoodEventUtils.normalize(pedido.status);
-
-    if (status.contains('DSP') || status.contains('DISPATCHED')) {
-      return 'Este pedido esta em entrega propria. A conclusao vem do iFood/cliente; o app apenas acompanha o status.';
-    }
-
-    if (status.contains('CON') || status.contains('CONCLUDED')) {
-      return 'Este pedido de entrega propria ja foi concluido.';
-    }
-
-    if (status.contains('RTP') ||
-        status.contains('READY_TO_PICKUP') ||
-        status.contains('READY TO PICKUP')) {
-      return 'Este pedido esta pronto para entrega propria. Use o despacho proprio quando a entrega sair.';
-    }
-
-    return 'Este pedido veio como entrega propria (MERCHANT). Use despacho proprio ou gere um pedido com Entrega iFood para testar mapa, entregador parceiro e codigo de coleta.';
-  }
-
   bool _canRequestCancellation(PedidoModel? pedido) {
     if (pedido == null) return false;
 
@@ -182,6 +163,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
 
     try {
       final result = await action();
+      if (!mounted) return;
 
       if (result) {
         final statusCode = _statusCodeForAction(actionName);
@@ -196,7 +178,9 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           });
 
           await _addEventForStatus(statusCode, Codigo);
+          if (!mounted) return;
           await widget.controller.atualizarPedido(currentPedido);
+          if (!mounted) return;
           widget.controller.queuePedidoCacheSave(currentPedido);
           widget.controller.selectedPedido.value = null;
           widget.controller.selectedPedido.value = currentPedido;
@@ -206,9 +190,11 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           unawaited(_refreshAfterAction(actionName));
         } else {
           await _refreshAfterAction(actionName);
+          if (!mounted) return;
         }
 
         await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
         if (mounted && statusCode == null) {
           setState(() {
             if (actionName == 'Confirmação') {
@@ -249,20 +235,24 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           }
 
           final currentPedido = widget.controller.selectedPedido.value;
+          if (currentPedido == null) return;
           widget.controller.selectedPedido.value = null;
           widget.controller.selectedPedido.value = currentPedido;
-          await widget.controller.atualizarPedido(currentPedido!);
+          await widget.controller.atualizarPedido(currentPedido);
+          if (!mounted) return;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$actionName realizada com sucesso!')),
         );
       } else {
+        if (!mounted) return;
         setState(() {
           _errorMessage = 'Falha ao realizar $actionName. Tente novamente.';
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Erro: ${_formatActionError(e)}';
       });
@@ -454,8 +444,8 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     });
 
     try {
-      final cancellationReasons = await _actionsService.getCancellationReasons(
-          pedido.id);
+      final cancellationReasons =
+          await _actionsService.getCancellationReasons(pedido.id);
 
       if (!mounted) return;
 
@@ -828,8 +818,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
               return sucess;
             }, 'Confirmação', null, null);
           },
-          style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green, foregroundColor: Colors.white),
+          style: _actionStyle(),
           child: const Text('Confirmar Pedido'),
         ),
       );
@@ -855,9 +844,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
                   null);
             }
           },
-          style: ElevatedButton.styleFrom(
-              backgroundColor: isMerchantDelivery ? Colors.orange : Colors.teal,
-              foregroundColor: Colors.white),
+          style: _actionStyle(),
           child: Text(isMerchantDelivery
               ? 'Despachar entrega propria'
               : 'Marcar como Pronto'),
@@ -883,8 +870,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
               );
             },
             icon: const Icon(Icons.done_all, size: 18),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: _actionStyle(),
             label: const Text('Concluir Pedido'),
           ),
         );
@@ -895,8 +881,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
             onPressed: () async {
               await _showDeliveryPersonModal();
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            style: _actionStyle(),
             child: const Text('Despachar entrega propria'),
           ),
         );
@@ -938,8 +923,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
       buttons.add(
         ElevatedButton(
           onPressed: _showCancellationDialog,
-          style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red, foregroundColor: Colors.white),
+          style: _actionStyle(cancel: true),
           child: const Text('Cancelar Pedido'),
         ),
       );
@@ -957,42 +941,25 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
     return buttons;
   }
 
+  ButtonStyle _actionStyle({bool cancel = false}) => ElevatedButton.styleFrom(
+        backgroundColor:
+            cancel ? const Color(0xFFFFEBEE) : FoodOrderBrand.colorOf(context),
+        foregroundColor: cancel ? const Color(0xFFB42318) : Colors.white,
+        elevation: 0,
+        minimumSize: const Size(220, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        textStyle: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      );
   @override
   Widget build(BuildContext context) {
     final visibleErrorMessage = _visibleErrorMessage();
-    final pedido = widget.controller.selectedPedido.value;
-    final isIfoodOwnDelivery = pedido != null &&
-        IfoodEventUtils.isIfoodSalesChannel(pedido.salesChannel) &&
-        IfoodEventUtils.isMerchantDelivery(pedido.delivery.deliveredBy);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isIfoodOwnDelivery)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade100),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.orange.shade700, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _merchantDeliveryNotice(pedido),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         if (visibleErrorMessage != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
@@ -1007,7 +974,7 @@ class _PedidoActionsButtonsState extends State<PedidoActionsButtons> {
           Wrap(
             spacing: 8.0,
             runSpacing: 8.0,
-            alignment: WrapAlignment.center,
+            alignment: WrapAlignment.end,
             children: _buildActionButtons(),
           ),
       ],

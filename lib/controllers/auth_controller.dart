@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kronos_food/controllers/main_controller.dart';
 import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
+import 'package:kronos_food/repositories/darcapio_repository.dart';
 import 'package:kronos_food/service/preferences_service.dart';
 import 'package:kronos_food/utils/app_logger.dart';
 
@@ -175,10 +178,11 @@ class AuthController extends ChangeNotifier {
       'senha': senha,
       'aplicacao': codApp,
       'numeroterminal': numTermninal,
-      'codigoempresa': codigoEmpresa
+      'codigoempresa': codigoEmpresa,
+      'nomecomputador': Platform.localHostname,
     };
 
-    final response = await _postKronosLogin('$serverIp/usuario/login', body);
+    final response = await _postStrictKronosLogin(serverIp, body);
 
     if (response.statusCode != 200) {
       final message =
@@ -216,48 +220,28 @@ class AuthController extends ChangeNotifier {
     return response.data;
   }
 
-  Future<Response<dynamic>> _postKronosLogin(
-      String url, Map<String, dynamic> body) async {
-    final response = await dio.post(
-      url,
-      options: Options(
-        headers: {'Content-Type': 'application/json'},
+  Future<Response<dynamic>> _postStrictKronosLogin(
+      String server, Map<String, dynamic> body) async {
+    final uri = DarcapioRepository.validateServer(server);
+    final client = Dio(BaseOptions(
         followRedirects: false,
-        validateStatus: (status) => status != null && status < 400,
-      ),
-      data: body,
-    );
-
-    final statusCode = response.statusCode ?? 0;
-    if (statusCode == 301 ||
-        statusCode == 302 ||
-        statusCode == 307 ||
-        statusCode == 308) {
-      final location = response.headers.value('location');
-      if (location == null || location.isEmpty) {
-        throw Exception("Servidor redirecionou o login sem informar destino.");
-      }
-
-      final redirectedUrl = Uri.parse(url).resolve(location).toString();
-      return dio.post(
-        redirectedUrl,
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          followRedirects: true,
-          validateStatus: (status) => status != null && status < 500,
-        ),
-        data: body,
-      );
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 20)));
+    client.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () =>
+            HttpClient()..badCertificateCallback = (_, __, ___) => false);
+    try {
+      return await client.post('$uri/usuario/login/', data: body);
+    } finally {
+      client.close();
     }
-
-    return response;
   }
 
-  Future<Object> loginUser(
-      BuildContext context, String username, String password) async {
+  Future<bool> loginUser(String username, String password) async {
     final companyCode = await preferenceService.getCompanyCode() ?? '1';
     final terminalCode = await preferenceService.getTerminalCode() ?? '1';
     isAuthenticating.value = true;
+    isAuthenticated.value = false;
     haveError.value = false;
     errorMsg.value = "";
     notifyListeners();
@@ -292,14 +276,13 @@ class AuthController extends ChangeNotifier {
       final usuario = _readApiField(resultado, 'Usuario');
       final token = _readApiField(usuario, 'Hash') ?? '';
       final codigoUser = _readApiField(usuario, 'Codigo');
+      if (token is! String || token.trim().isEmpty || codigoUser == null) {
+        throw StateError('O servidor não retornou uma sessão válida do Food.');
+      }
       await authRepository.saveKronosToken(token);
       await authRepository.saveCodeUser(codigoUser.toString());
 
-      final tokenData =
-          await authRepository.authenticateWithClientCredentials();
-      await authRepository.saveConfig(tokenData);
-      mainController.setConfig(tokenData);
-
+      // The orders screen connects to iFood after the Food session is ready.
       isAuthenticated.value = true;
       return true;
     } catch (err, stackTrace) {

@@ -452,6 +452,10 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     final rank = _statusProgressRank(pedido.status);
     final previousRank = _latestCacheSaveRank[pedido.id];
 
+    if (previousRank != null && previousRank >= 50 && rank <= previousRank) {
+      return;
+    }
+
     if (previousRank == null || rank >= previousRank) {
       _latestCacheSaveRank[pedido.id] = rank;
     }
@@ -471,14 +475,14 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   Future<PedidoModel?> getPedidoDetails(String pedidoId) async {
     try {
-      await AppLogger.error(
+      await AppLogger.info(
         'Buscando detalhes do pedido.',
         data: {'orderId': pedidoId},
       );
       var pedidos = <PedidoModel>[];
       try {
         pedidos = await kronosRepository.getPedidosCache();
-        await AppLogger.error(
+        await AppLogger.info(
           'Cache de pedidos consultado.',
           data: {
             'orderId': pedidoId,
@@ -499,7 +503,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         developer.log("Cache de pedidos está vazio.");
         var pedido = await orderRepository.getPedidoDetails(pedidoId);
         pedido.status = _determineStatus(pedido);
-        await AppLogger.error(
+        await AppLogger.info(
           'Detalhes do pedido obtidos na API iFood.',
           data: {
             'orderId': pedidoId,
@@ -513,7 +517,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         final cachedPedido = pedidos.firstWhere((p) => p.id == pedidoId);
         cachedPedido.status = _determineStatus(cachedPedido);
         developer.log("Pedido $pedidoId recuperado do cache.");
-        await AppLogger.error(
+        await AppLogger.info(
           'Detalhes do pedido recuperados do cache.',
           data: {
             'orderId': pedidoId,
@@ -592,7 +596,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
         : '${event.code}_${event.fullCode}_${event.orderId}';
 
     if (!_processingEventIds.add(eventProcessingKey)) {
-      await AppLogger.error(
+      await AppLogger.debug(
         'Evento ignorado porque ja esta em processamento.',
         data: {
           'eventId': event.id,
@@ -610,7 +614,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       final String eventCode =
           event.code.isNotEmpty ? event.code : event.fullCode;
 
-      await AppLogger.error(
+      await AppLogger.info(
         'Processando evento do polling.',
         data: {
           'eventId': event.id,
@@ -709,7 +713,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
           try {
             updatedPedido = await orderRepository.getPedidoDetails(orderId);
             _mergeKnownPedidoState(updatedPedido, existingPedido);
-            await AppLogger.error(
+            await AppLogger.info(
               'Detalhes do pedido obtidos direto no iFood para evento.',
               data: {
                 'orderId': orderId,
@@ -749,7 +753,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
                 : updatedPedido.status);
             updatedPedido.status = status;
 
-            await AppLogger.error(
+            await AppLogger.info(
               'Detalhes do pedido processados.',
               data: {
                 'orderId': orderId,
@@ -764,10 +768,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
             if (status == 'CON' || status == 'HSD') {
               await _savePedidoToLocalBackup(updatedPedido);
-              final sucess = await pollingRepository.acknowledgeEvents([
-                {"id": event.id}
-              ]);
-              if (sucess && status == 'CON') {
+              if (status == 'CON') {
                 unawaited(
                   kronosRepository.sendConfirmar(updatedPedido).catchError(
                     (e, stackTrace) async {
@@ -789,12 +790,21 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
             }
 
             // ACEITAÇÃO AUTOMÁTICA DE PEDIDOS
-            final shouldAutoAccept =
-                status == Consts.statusPlaced && await _shouldAutoAcceptNow();
+            final isPlacedEvent = IfoodEventUtils.isPlacedEvent(eventCode) ||
+                IfoodEventUtils.isPlacedEvent(event.fullCode);
+            final existingOrderAlreadyAdvanced = existingPedido != null &&
+                _statusProgressRank(_determineStatus(existingPedido)) >
+                    _statusProgressRank(Consts.statusPlaced);
+            final shouldAutoAccept = isPlacedEvent &&
+                !existingOrderAlreadyAdvanced &&
+                status == Consts.statusPlaced &&
+                await _shouldAutoAcceptNow();
 
-            if (status == Consts.statusPlaced && !shouldAutoAccept) {
-              await AppLogger.error(
-                'Aceite automatico ignorado porque esta desativado.',
+            if (isPlacedEvent &&
+                status == Consts.statusPlaced &&
+                !shouldAutoAccept) {
+              await AppLogger.info(
+                'Aceite automatico nao executado.',
                 data: {
                   'orderId': orderId,
                   'displayId': updatedPedido.displayId,
@@ -802,12 +812,13 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
                   'status': status,
                   'autoAcceptEnabled': _autoAcceptEnabled,
                   'autoAcceptNotifier': autoAcceptNotifier.value,
+                  'existingOrderAlreadyAdvanced': existingOrderAlreadyAdvanced,
                 },
               );
             }
 
             if (status == Consts.statusConfirmed) {
-              await AppLogger.error(
+              await AppLogger.info(
                 'Pedido chegou como confirmado por evento/status externo, sem chamada de aceite automatico neste ponto.',
                 data: {
                   'orderId': orderId,
@@ -820,20 +831,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
             if (shouldAutoAccept) {
               try {
-                if (!await _shouldAutoAcceptNow()) {
-                  await AppLogger.error(
-                    'Aceite automatico abortado antes de chamar o iFood porque a preferencia esta desativada.',
-                    data: {
-                      'orderId': orderId,
-                      'displayId': updatedPedido.displayId,
-                      'eventCode': eventCode,
-                      'status': status,
-                    },
-                  );
-                  return;
-                }
-
-                await AppLogger.error(
+                await AppLogger.info(
                   'Aceite automatico vai chamar confirm no iFood.',
                   data: {
                     'orderId': orderId,
@@ -915,7 +913,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
               {"id": event.id}
             ]);
 
-            await AppLogger.error(
+            await AppLogger.info(
               'Evento processado e aplicado no mapa.',
               data: {
                 'eventId': event.id,
@@ -1041,10 +1039,16 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       for (var pedido in pedidos) {
         var shouldSaveNormalizedPedido = false;
         String status = _determineStatus(pedido);
+        final knownRank = _latestCacheSaveRank[pedido.id];
+        final loadedRank = _statusProgressRank(status);
+        if (knownRank == null || loadedRank > knownRank) {
+          _latestCacheSaveRank[pedido.id] = loadedRank;
+        }
 
         if (pedido.displayId.isEmpty) {
           try {
-            var pedidoResult = await orderRepository.getPedidoDetails(pedido.id);
+            var pedidoResult =
+                await orderRepository.getPedidoDetails(pedido.id);
             _mergeKnownPedidoState(pedidoResult, pedido);
             pedido = pedidoResult;
             shouldSaveNormalizedPedido = true;
@@ -1100,7 +1104,6 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   String mapApiStatusToCode(String apiStatus) {
     final upperStatus = apiStatus.toUpperCase();
-    developer.log("Mapeando status: $apiStatus (uppercase: $upperStatus)");
 
     if (upperStatus.contains('CAN') ||
         upperStatus == 'CAR' ||
@@ -1145,7 +1148,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
       return 'HSD';
     } else {
       developer.log("⚠️ Status desconhecido: $apiStatus, usando o padrão PLC");
-      return Consts.statusPlaced;
+      return Consts.statusConfirmed;
     }
   }
 
@@ -1169,6 +1172,15 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     if (upperEventCode == 'CAR') {
       return Consts.statusCancelled;
+    }
+
+    if (IfoodEventUtils.isWaitingDriverEvent(upperEventCode) ||
+        IfoodEventUtils.isReadyEvent(upperEventCode)) {
+      return Consts.statusReadyToPickup;
+    }
+
+    if (IfoodEventUtils.isInRouteEvent(upperEventCode)) {
+      return Consts.statusDispatched;
     }
 
     return eventCode;
@@ -1224,7 +1236,7 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   Future<void> getPedidos() async {
     if (_pollingInProgress) {
-      await AppLogger.error('Polling ignorado porque outro ciclo ainda roda.');
+      await AppLogger.debug('Polling ignorado porque outro ciclo ainda roda.');
       return;
     }
 
@@ -1233,10 +1245,14 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
     try {
       _batchNotifications = true;
+      unawaited(kronosRepository.retryPendingSync());
 
       await cleanExpiredConfirmations();
 
       var events = await pollingRepository.getPolling();
+      merchantStatus.value = pollingRepository.lastRequestSucceeded
+          ? MerchantStatus.ok
+          : MerchantStatus.error;
 
       developer.log("Eventos recebidos: ${events.length}");
 
@@ -1285,21 +1301,15 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
     }
   }
 
-  Future<void> getMerchantStatus() async {
-    merchantStatus.value = MerchantStatus.ok;
-  }
-
   void _startPollingLoops() {
     cleanupTimer?.cancel();
     timerMake?.cancel();
 
-    cleanupTimer =
-        Timer.periodic(const Duration(seconds: Consts.pollingIntervalSeconds),
-            (timer) {
+    cleanupTimer = Timer.periodic(
+        const Duration(seconds: Consts.pollingIntervalSeconds), (timer) {
       unawaited(cleanExpiredConfirmations());
     });
 
-    unawaited(getMerchantStatus());
     unawaited(getPedidos());
     timerMake = Timer.periodic(
         const Duration(seconds: Consts.pollingIntervalSeconds), (timer) {
@@ -1309,6 +1319,8 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
 
   Future<void> init(BuildContext context) async {
     isLoading = true;
+    haveError = false;
+    errorMsg = '';
     notifyListeners();
 
     try {

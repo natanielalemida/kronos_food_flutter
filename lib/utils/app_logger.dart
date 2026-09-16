@@ -314,6 +314,7 @@ class AppLogger {
         normalized.contains('passwd') ||
         normalized.contains('secret') ||
         normalized.contains('token') ||
+        normalized == 'auth' ||
         normalized.contains('authorization') ||
         normalized.contains('cookie') ||
         normalized.contains('apikey') ||
@@ -334,7 +335,7 @@ class AppLogger {
     );
     sanitized = sanitized.replaceAllMapped(
       RegExp(
-        r'''(["']?(?:senha|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization|cookie|set-cookie|api[_-]?key|code[_-]?verifier)["']?\s*[:=]\s*["']?)([^\s,"'}&]+)''',
+        r'''(["']?(?:senha|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|auth|authorization|cookie|set-cookie|api[_-]?key|code[_-]?verifier)["']?\s*[:=]\s*["']?)([^\s,"'}&]+)''',
         caseSensitive: false,
       ),
       (match) => '${match.group(1)}$_redacted',

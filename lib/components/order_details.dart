@@ -6,18 +6,16 @@ import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:kronos_food/components/order_delivery_info.dart';
+import 'package:kronos_food/components/ifood_order_details_view.dart';
 import 'package:kronos_food/components/order_ifood_tracking.dart';
-import 'package:kronos_food/components/order_items.dart';
-import 'package:kronos_food/components/order_payment_info.dart';
+
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:kronos_food/components/order_timeline.dart';
+
 import 'package:kronos_food/components/pedido_actions_buttons.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/repositories/order_repository.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
-import 'package:kronos_food/utils/ifood_event_utils.dart';
 
 const double _receiptLeftOffset = 0;
 const double _receiptRightGuard = 4.0 * PdfPageFormat.mm;
@@ -454,7 +452,9 @@ class _OrderDetailsState extends State<OrderDetails> {
         }
 
         updatedOrder.status = widget.controller.mapApiStatusToCode(
-          updatedOrder.status.isEmpty ? currentOrder.status : updatedOrder.status,
+          updatedOrder.status.isEmpty
+              ? currentOrder.status
+              : updatedOrder.status,
         );
         await widget.controller.atualizarPedido(updatedOrder);
         widget.controller.selectedPedido.value = updatedOrder;
@@ -628,330 +628,43 @@ class _OrderDetailsState extends State<OrderDetails> {
 
     return Stack(
       children: [
-        Container(
-          color: Colors.grey[50],
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isHsd)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[700],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
+        IfoodOrderDetailsView(
+          order: selectedOrder,
+          onPrint: printReceiptWithDefault,
+          tracking: OrderIfoodTracking(order: selectedOrder),
+          alert: isHsd
+              ? Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFFF5E4),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.warning, color: Colors.white),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Este pedido está em disputa (HSD)',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: isTimeExpired ? null : _toggleDisputePanel,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.orange[700],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                          ),
-                          child: Text(
-                            isTimeExpired ? 'Tempo esgotado' : 'Responder',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (isHsd) const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          IconButton(
-                            icon:
-                                const Icon(Icons.print, color: Colors.black54),
-                            onPressed: printReceiptWithDefault,
-                            tooltip: 'Imprimir',
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey[300]!),
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                child: Text(
-                                  widget.controller.selectedPedido.value
-                                          ?.displayId ??
-                                      '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  widget.controller.selectedPedido.value
-                                          ?.customer.name ??
-                                      "",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Feito às ${_formatTime(widget.controller.selectedPedido.value?.createdAt ?? DateTime.now())}",
-                                style: TextStyle(color: Colors.grey[700]),
-                              ),
-                              const SizedBox(width: 8),
-                              Text("•",
-                                  style: TextStyle(color: Colors.grey[700])),
-                              const SizedBox(width: 8),
-                              Text(
-                                "Localizador",
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.controller.selectedPedido.value?.customer
-                                        .phone.localizer ??
-                                    "",
-                                style: TextStyle(color: Colors.grey[700]),
-                              ),
-                              const SizedBox(width: 8),
-                              Text("•",
-                                  style: TextStyle(color: Colors.grey[700])),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      "via ${widget.controller.selectedPedido.value?.salesChannel ?? ""}",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (widget.controller.selectedPedido.value!
-                                          .schedule.deliveryDateTimeStart !=
-                                      null &&
-                                  widget.controller.selectedPedido.value!
-                                          .schedule.deliveryDateTimeEnd !=
-                                      null) ...[
-                                const SizedBox(width: 4),
-                                Text(
-                                  "Horário Agendado: ${DateFormat('HH:mm').format(widget.controller.selectedPedido.value!.schedule.deliveryDateTimeStart!)} - ${DateFormat('HH:mm').format(widget.controller.selectedPedido.value!.schedule.deliveryDateTimeEnd!)}",
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                              ]
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.phone,
-                                  size: 18, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text(
-                                "${widget.controller.selectedPedido.value?.customer.phone.number ?? ""} ID: ${widget.controller.selectedPedido.value?.customer.phone.localizer ?? ""}",
-                                style: TextStyle(color: Colors.grey[700]),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (widget.controller.selectedPedido.value?.status !=
-                        "SCHEDULED" &&
-                    widget.controller.selectedPedido.value != null) ...[
-                  OrderTimeline(
-                    order: widget.controller.selectedPedido.value!,
-                  ),
-                ],
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.touch_app, color: Colors.orange[700]),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Ações do Pedido",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      PedidoActionsButtons(
-                        controller: widget.controller,
-                        onRefreshPolling: widget.onRefreshPolling,
-                        onActionComplete: () async {
-                          await _updateOrderDetails();
-                          if (widget.onActionComplete != null) {
-                            widget.onActionComplete!();
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (IfoodEventUtils.isIfoodSalesChannel(
-                        selectedOrder.salesChannel) ||
-                    IfoodEventUtils.isIfoodDelivery(
-                        selectedOrder.delivery.deliveredBy)) ...[
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: OrderIfoodTracking(order: selectedOrder),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: OrderDeliveryInfo(
-                    order: widget.controller.selectedPedido.value!,
-                    status:
-                        widget.controller.selectedPedido.value?.status ?? "",
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: OrderItems(
-                    order: widget.controller.selectedPedido.value!,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: OrderPaymentInfo(
-                    order: widget.controller.selectedPedido.value!,
-                    status:
-                        widget.controller.selectedPedido.value?.status ?? "",
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+                        const Text(
+                            'O cliente abriu uma solicitação sobre este pedido.',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        FilledButton(
+                            onPressed:
+                                isTimeExpired ? null : _toggleDisputePanel,
+                            child: Text(isTimeExpired
+                                ? 'Tempo esgotado'
+                                : 'Responder solicitação')),
+                      ]),
+                )
+              : null,
+          actions: PedidoActionsButtons(
+            controller: widget.controller,
+            onRefreshPolling: widget.onRefreshPolling,
+            onActionComplete: () async {
+              await _updateOrderDetails();
+              widget.onActionComplete?.call();
+            },
           ),
         ),
-
         // Painel de Resposta à Disputa
         if (_showDisputePanel)
           Positioned(
@@ -1356,11 +1069,6 @@ class _OrderDetailsState extends State<OrderDetails> {
         ],
       ),
     );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    dateTime = dateTime.toLocal();
-    return "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
   }
 
   String _formatRemainingTime(DateTime? expiresAt) {

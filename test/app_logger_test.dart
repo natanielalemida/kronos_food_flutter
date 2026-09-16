@@ -10,6 +10,7 @@ void main() {
         'clientSecret': 'segredo-do-cliente',
         'headers': {
           'Authorization': 'Bearer token-de-acesso',
+          'Auth': 'token-kronos',
           'Content-Type': 'application/json',
         },
         'nested': {
@@ -26,6 +27,10 @@ void main() {
         '***MASCARADO***',
       );
       expect(
+        (sanitized['headers'] as Map<String, dynamic>)['Auth'],
+        '***MASCARADO***',
+      );
+      expect(
         (sanitized['nested'] as Map<String, dynamic>)['refresh_token'],
         '***MASCARADO***',
       );
@@ -37,12 +42,14 @@ void main() {
 
     test('mascara credenciais presentes em texto livre', () {
       final sanitized = AppLogger.sanitizeForTesting(
-        'Authorization: Bearer abc.def.ghi clientSecret=nao-pode-vazar '
+        'Authorization: Bearer abc.def.ghi Auth=token-kronos '
+        'clientSecret=nao-pode-vazar '
         'authorization=Basic YWRtaW46c2VuaGE= cookie=session-secreta',
       ) as String;
 
       expect(sanitized, contains('***MASCARADO***'));
       expect(sanitized, isNot(contains('abc.def.ghi')));
+      expect(sanitized, isNot(contains('token-kronos')));
       expect(sanitized, isNot(contains('nao-pode-vazar')));
       expect(sanitized, isNot(contains('YWRtaW46c2VuaGE=')));
       expect(sanitized, isNot(contains('session-secreta')));

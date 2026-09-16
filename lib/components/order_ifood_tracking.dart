@@ -327,7 +327,7 @@ class _OrderIfoodTrackingState extends State<OrderIfoodTracking> {
               icon: Icons.schedule,
               color: Colors.orange,
               text:
-                  'Aguardando evento de entregador do iFood. O mapa so aparece depois de ASSIGN_DRIVER/rota e pode ficar indisponivel em homolog ate o tracking existir.',
+                  'O mapa será exibido quando o iFood disponibilizar a localização do entregador.',
             )
           else
             _buildTrackingBody(),

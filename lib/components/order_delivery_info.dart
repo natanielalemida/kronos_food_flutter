@@ -1,250 +1,113 @@
 import 'package:flutter/material.dart';
-import 'package:kronos_food/consts.dart';
-import 'package:kronos_food/models/pedido_model.dart';
-import 'package:kronos_food/utils/ifood_event_utils.dart';
+import '../models/pedido_model.dart';
+import '../utils/ifood_event_utils.dart';
+import 'darcapio/order_style.dart';
+import 'food_order_brand.dart';
 
 class OrderDeliveryInfo extends StatelessWidget {
   final PedidoModel order;
   final String status;
+  const OrderDeliveryInfo(
+      {super.key, required this.order, required this.status});
 
-  const OrderDeliveryInfo({
-    super.key,
-    required this.order,
-    required this.status,
-  });
+  static bool isPickupOrCounter(PedidoModel order) {
+    if (IfoodEventUtils.normalize(order.orderType).contains('TAKEOUT')) {
+      return true;
+    }
+    final address = order.delivery.deliveryAddress;
+    final hasAddress = [
+      address.streetName,
+      address.streetNumber,
+      address.neighborhood,
+      address.city,
+      address.postalCode
+    ].any((value) => value.trim().isNotEmpty);
+    return !hasAddress &&
+        !IfoodEventUtils.isIfoodDelivery(order.delivery.deliveredBy) &&
+        !IfoodEventUtils.isMerchantDelivery(order.delivery.deliveredBy);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final hasDeliveryAddress = _hasDeliveryAddress(order);
-    final salesChannel = IfoodEventUtils.normalize(order.salesChannel);
-    final orderType = IfoodEventUtils.normalize(order.orderType);
-    final deliveredBy = IfoodEventUtils.normalize(order.delivery.deliveredBy);
-    final isTotem = salesChannel.contains('TOTEM');
-    final isTakeout = orderType.contains('TAKEOUT');
-    final isDelivery = hasDeliveryAddress ||
-        IfoodEventUtils.isIfoodDelivery(deliveredBy) ||
-        IfoodEventUtils.isMerchantDelivery(deliveredBy);
-    final sectionTitle =
-        isDelivery ? 'Endereco de Entrega' : 'Retirada / Balcao';
-    final sectionIcon =
-        isDelivery ? Icons.location_on : Icons.storefront_outlined;
-    final sectionColor = isDelivery ? Colors.red : Consts.primaryColor;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            spreadRadius: 1,
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(sectionIcon, color: sectionColor, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                sectionTitle,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.end,
-                children: [
-                  if (isTotem)
-                    _buildBadge(
-                      icon: Icons.point_of_sale_outlined,
-                      text: 'Pedido Totem',
-                      backgroundColor:
-                          Consts.primaryColor.withValues(alpha: 0.12),
-                      foregroundColor: Consts.primaryColor,
-                    ),
-                  if (IfoodEventUtils.isMerchantDelivery(deliveredBy))
-                    _buildBadge(
-                      icon: Icons.delivery_dining,
-                      text: 'Entrega propria',
-                      backgroundColor: Colors.grey.shade200,
-                      foregroundColor: Colors.grey.shade700,
-                    ),
-                  if (IfoodEventUtils.isIfoodDelivery(deliveredBy))
-                    _buildBadge(
-                      icon: Icons.two_wheeler,
-                      text: 'Entrega iFood',
-                      backgroundColor:
-                          Consts.primaryColor.withValues(alpha: 0.12),
-                      foregroundColor: Consts.primaryColor,
-                    ),
-                  if (isTakeout || !isDelivery)
-                    _buildBadge(
-                      icon: Icons.my_location,
-                      text: 'Sem entrega',
-                      backgroundColor: Consts.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  if (order.delivery.nomeEntregador.isNotEmpty)
-                    _buildBadge(
-                      icon: Icons.motorcycle,
-                      text: order.delivery.nomeEntregador,
-                      backgroundColor: Consts.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (!isDelivery)
-            _buildInfoBox(
-              icon: Icons.info_outline,
-              text: isTotem
-                  ? 'Pedido vindo do TOTEM, sem entrega associada. Por isso nao existe mapa, entregador ou localizacao em tempo real.'
-                  : 'Pedido sem entrega associada. Por isso nao existe mapa, entregador ou localizacao em tempo real.',
-            )
-          else if (status == Consts.statusPlaced)
-            const Text(
-              'As informacoes de endereco estao ocultas ate que o pedido seja aceito',
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
-              ),
-            )
-          else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
+    final pickup = isPickupOrCounter(order);
+    final accent = FoodOrderBrand.colorOf(context);
+    final address = order.delivery.deliveryAddress;
+    return OrderPanel(
+        title: 'Cliente e ${pickup ? 'retirada' : 'entrega'}',
+        icon: Icons.person_outline,
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            CircleAvatar(
+                radius: 20,
+                backgroundColor: accent.withValues(alpha: .08),
+                child: Text(
+                    order.customer.name.isEmpty
+                        ? '?'
+                        : order.customer.name.characters.first.toUpperCase(),
+                    style:
+                        TextStyle(color: accent, fontWeight: FontWeight.w700))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Text(order.customer.name,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: OrderStyle.ink,
+                        height: 1.5))),
+          ]),
+          if (order.customer.phone.number.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OrderMeta(Icons.phone_outlined, order.customer.phone.number),
+          ],
+          if (order.customer.phone.localizer.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            OrderMeta(
+                Icons.tag, 'Localizador ${order.customer.phone.localizer}'),
+          ],
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: OrderStyle.line),
+          const SizedBox(height: 16),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(
+                pickup ? Icons.storefront_outlined : Icons.location_on_outlined,
+                size: 20,
+                color: accent),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${order.delivery.deliveryAddress.streetName}, ${order.delivery.deliveryAddress.streetNumber}',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      if (order.delivery.deliveryAddress.complement.isNotEmpty)
-                        Text(
-                          'Complemento: ${order.delivery.deliveryAddress.complement}',
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                      Text(
-                        '${order.delivery.deliveryAddress.neighborhood} - ${order.delivery.deliveryAddress.city}',
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
-                      Text(
-                        'CEP: ${order.delivery.deliveryAddress.postalCode}',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (order.delivery.deliveryAddress.reference.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber[100]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 16, color: Colors.amber[800]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Ponto de referencia: ${order.delivery.deliveryAddress.reference}',
-                        style: TextStyle(
+                  Text(pickup ? 'Retirada na loja' : 'Entrega no endereço',
+                      style: const TextStyle(
                           fontSize: 13,
-                          color: Colors.amber[900],
-                        ),
-                      ),
-                    ),
+                          fontWeight: FontWeight.w700,
+                          color: OrderStyle.ink)),
+                  const SizedBox(height: 6),
+                  if (pickup)
+                    _line('O cliente retira o pedido no balcão.')
+                  else if (IfoodEventUtils.isPlacedEvent(status))
+                    _line('O endereço será exibido após o aceite do pedido.')
+                  else ...[
+                    _line([address.streetName, address.streetNumber]
+                        .where((s) => s.isNotEmpty)
+                        .join(', ')),
+                    _line([address.neighborhood, address.city]
+                        .where((s) => s.isNotEmpty)
+                        .join(' · ')),
+                    if (address.postalCode.isNotEmpty)
+                      _line('CEP ${address.postalCode}'),
+                    if (address.complement.isNotEmpty)
+                      _line(address.complement),
+                    if (address.reference.isNotEmpty)
+                      _line('Referência: ${address.reference}'),
                   ],
-                ),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
+                ])),
+          ]),
+        ]));
   }
 
-  static bool _hasDeliveryAddress(PedidoModel order) {
-    final address = order.delivery.deliveryAddress;
-    return address.streetName.trim().isNotEmpty ||
-        address.streetNumber.trim().isNotEmpty ||
-        address.neighborhood.trim().isNotEmpty ||
-        address.city.trim().isNotEmpty ||
-        address.postalCode.trim().isNotEmpty;
-  }
-
-  Widget _buildBadge({
-    required IconData icon,
-    required String text,
-    required Color backgroundColor,
-    required Color foregroundColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: foregroundColor),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(fontSize: 12, color: foregroundColor),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoBox({
-    required IconData icon,
-    required String text,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.teal.shade100),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.teal.shade700),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: Colors.teal.shade900,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _line(String text) => Text(text,
+      style:
+          const TextStyle(fontSize: 12, height: 1.6, color: OrderStyle.muted));
 }

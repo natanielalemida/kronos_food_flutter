@@ -13,6 +13,10 @@ class Consts {
   static const String clientId = String.fromEnvironment('IFOOD_CLIENT_ID');
   static const String clientSecret =
       String.fromEnvironment('IFOOD_CLIENT_SECRET');
+  static const String ifoodAuthMode = String.fromEnvironment(
+    'IFOOD_AUTH_MODE',
+    defaultValue: 'centralized',
+  );
   static const String merchantId = String.fromEnvironment('IFOOD_MERCHANT_ID');
   static const String merchantName = String.fromEnvironment(
     'IFOOD_MERCHANT_NAME',
