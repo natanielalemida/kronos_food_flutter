@@ -5,6 +5,7 @@ import 'food_source_badge.dart';
 import 'food_fulfillment_badge.dart';
 import 'darcapio/order_style.dart';
 import 'food_order_brand.dart';
+import '../repositories/darcapio_repository.dart';
 
 class FoodOrderList extends StatefulWidget {
   final List<FoodOrderEntry> orders;
@@ -13,6 +14,8 @@ class FoodOrderList extends StatefulWidget {
   final bool connected;
   final bool kanban;
   final Map<String, String> attention;
+  final bool actionsEnabled;
+  final void Function(FoodOrderEntry, DarcapioAction)? onOrderAction;
   const FoodOrderList(
       {super.key,
       required this.orders,
@@ -20,7 +23,9 @@ class FoodOrderList extends StatefulWidget {
       required this.onSelected,
       required this.connected,
       this.kanban = false,
-      this.attention = const {}});
+      this.attention = const {},
+      this.actionsEnabled = true,
+      this.onOrderAction});
 
   @override
   State<FoodOrderList> createState() => _FoodOrderListState();
@@ -264,6 +269,8 @@ class _FoodOrderListState extends State<FoodOrderList> {
   Widget orderCard(FoodOrderEntry order) {
     final selected = order.key == widget.selectedId;
     final accent = FoodOrderBrand.colorFor(order.source);
+    final accept = actionOf(order, 'aceitar');
+    final reject = actionOf(order, 'cancelar');
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Material(
@@ -338,9 +345,60 @@ class _FoodOrderListState extends State<FoodOrderList> {
                                   DateFormat('dd/MM · HH:mm')
                                       .format(order.created)),
                             ]),
+                        if (accept != null || reject != null) ...[
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: OrderStyle.line),
+                          const SizedBox(height: 10),
+                          Row(children: [
+                            if (reject != null)
+                              Expanded(
+                                  child: OutlinedButton.icon(
+                                      key: ValueKey(
+                                          '${order.key}-reject-action'),
+                                      onPressed: widget.actionsEnabled &&
+                                              widget.onOrderAction != null
+                                          ? () => widget.onOrderAction!(
+                                              order, reject)
+                                          : null,
+                                      icon: const Icon(Icons.close, size: 16),
+                                      label: const Text('Recusar'),
+                                      style: OutlinedButton.styleFrom(
+                                          foregroundColor:
+                                              const Color(0xFFB42318),
+                                          side: const BorderSide(
+                                              color: Color(0xFFF0B6B2)),
+                                          visualDensity:
+                                              VisualDensity.compact))),
+                            if (reject != null && accept != null)
+                              const SizedBox(width: 8),
+                            if (accept != null)
+                              Expanded(
+                                  child: FilledButton.icon(
+                                      key: ValueKey(
+                                          '${order.key}-accept-action'),
+                                      onPressed: widget.actionsEnabled &&
+                                              widget.onOrderAction != null
+                                          ? () => widget.onOrderAction!(
+                                              order, accept)
+                                          : null,
+                                      icon: const Icon(Icons.check, size: 16),
+                                      label: const Text('Aceitar'),
+                                      style: FilledButton.styleFrom(
+                                          backgroundColor: OrderStyle.teal,
+                                          visualDensity:
+                                              VisualDensity.compact))),
+                          ]),
+                        ],
                       ]))),
         ),
       ),
     );
+  }
+
+  DarcapioAction? actionOf(FoodOrderEntry order, String code) {
+    for (final action in order.darcapioOrder?.actions ?? const []) {
+      if (action.action == code) return action;
+    }
+    return null;
   }
 }

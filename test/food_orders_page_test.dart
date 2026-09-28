@@ -12,7 +12,7 @@ import 'package:kronos_food/pages/pedidos_page.dart';
 import 'package:kronos_food/repositories/darcapio_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'darcapio_test.dart' show FakeDarcapio;
+import 'darcapio_test.dart' show FakeDarcapio, order;
 
 class UnavailableIfoodController extends ValueNotifier<List<dynamic>>
     implements PedidosController {
@@ -103,6 +103,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(darcapio.accepted, 1);
     expect(find.text('Iniciar preparo'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('New Darcapio order can be accepted from its card',
+      (tester) async {
+    final darcapio = FakeDarcapio()
+      ..current = order('recebido_erp', 1, actions: const [
+        DarcapioAction('aceitar', 'Aceitar pedido'),
+        DarcapioAction('cancelar', 'Cancelar pedido'),
+      ]);
+    await openFood(tester, UnavailableIfoodController(), darcapio);
+
+    final card = find.byKey(ValueKey('darcapio-order-${darcapio.current.id}'));
+    expect(find.descendant(of: card, matching: find.text('Aceitar')),
+        findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('Recusar')),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(
+        ValueKey('darcapio-order-${darcapio.current.id}-accept-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Aceitar pedido'), findsOneWidget);
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+
+    expect(darcapio.accepted, 1);
+    expect(darcapio.receivedReason, isNull);
+    expect(
+        find.byKey(
+            ValueKey('darcapio-order-${darcapio.current.id}-accept-action')),
+        findsNothing);
+    expect(find.text('Em preparo'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('New Darcapio order can be refused from its card with a reason',
+      (tester) async {
+    final darcapio = FakeDarcapio()
+      ..current = order('recebido_erp', 1, actions: const [
+        DarcapioAction('aceitar', 'Aceitar pedido'),
+        DarcapioAction('cancelar', 'Cancelar pedido'),
+      ]);
+    await openFood(tester, UnavailableIfoodController(), darcapio);
+
+    await tester.tap(find.byKey(
+        ValueKey('darcapio-order-${darcapio.current.id}-reject-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Motivo do cancelamento'), findsOneWidget);
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Motivo do cancelamento'),
+        'Loja sem estoque para atender');
+    await tester.pump();
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+
+    expect(darcapio.accepted, 1);
+    expect(darcapio.receivedReason, 'Loja sem estoque para atender');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

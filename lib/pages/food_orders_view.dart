@@ -425,6 +425,11 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
                 kanban: widget.kanban,
                 connected:
                     (error == null && company != null) || widget.ifoodConnected,
+                actionsEnabled: !busy && error == null,
+                onOrderAction: (entry, action) {
+                  final order = entry.darcapioOrder;
+                  if (order != null) unawaited(advance(order, action));
+                },
                 onSelected: (key) {
                   final entry = entries.firstWhere((order) => order.key == key);
                   if (entry.ifoodOrder != null) {
