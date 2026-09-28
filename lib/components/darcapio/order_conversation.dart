@@ -414,7 +414,7 @@ class _OrderConversationState extends State<OrderConversation> {
               Text(order.label,
                   style: const TextStyle(
                       color: OrderStyle.teal, fontWeight: FontWeight.w700)),
-              Text(order.pickup ? 'Retirada na loja' : 'Entrega no endereço'),
+              Text(order.pickup ? 'Retirada' : 'Entrega'),
               Text(
                   NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$')
                       .format(order.total),

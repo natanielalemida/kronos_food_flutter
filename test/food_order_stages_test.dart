@@ -130,7 +130,7 @@ void main() {
       await tester.pumpAndSettle();
       expectInGroup(card, 'Novos pedidos');
       expect(find.text('Aguardando aceite'), findsOneWidget);
-      expect(find.text('ENTREGA NO ENDEREÇO'), findsOneWidget);
+      expect(find.text('ENTREGA'), findsOneWidget);
 
       repository.current = order('pronto_entrega', 4, pickup: false);
       await tester.pump(const Duration(seconds: 5));

@@ -77,9 +77,7 @@ class DarcapioOrderDetails extends StatelessWidget {
                                     order.pickup
                                         ? Icons.storefront_outlined
                                         : Icons.delivery_dining,
-                                    order.pickup
-                                        ? 'Retirada na loja'
-                                        : 'Entrega no endereço'),
+                                    order.pickup ? 'Retirada' : 'Entrega'),
                                 OrderMeta(Icons.sync_rounded,
                                     'Sincronizado no ERP · Delivery #${order.delivery.toString().padLeft(4, '0')}'),
                                 const FoodSourceBadge(FoodOrderSource.darcapio),
@@ -164,7 +162,7 @@ class DarcapioOrderDetails extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(order.pickup ? 'RETIRADA NA LOJA' : 'ENTREGA NO ENDEREÇO',
+                Text(order.pickup ? 'RETIRADA' : 'ENTREGA',
                     style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
@@ -404,8 +402,7 @@ class DarcapioOrderDetails extends StatelessWidget {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(
-                      order.pickup ? 'Retirada na loja' : 'Entrega no endereço',
+                  Text(order.pickup ? 'Retirada' : 'Entrega',
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

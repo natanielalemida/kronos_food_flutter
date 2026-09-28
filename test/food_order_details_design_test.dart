@@ -167,9 +167,9 @@ void main() {
             body: IfoodOrderDetailsView(
                 order: order, onPrint: () {}, actions: const SizedBox()))));
     await tester.pumpAndSettle();
-    expect(find.text('RETIRADA NA LOJA'), findsOneWidget);
+    expect(find.text('RETIRADA'), findsOneWidget);
     expect(find.text('Pedido no totem'), findsOneWidget);
-    expect(find.text('ENTREGA NO ENDEREÇO'), findsNothing);
+    expect(find.text('ENTREGA'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -78,7 +78,7 @@ class OrderDeliveryInfo extends StatelessWidget {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(pickup ? 'Retirada na loja' : 'Entrega no endereço',
+                  Text(pickup ? 'Retirada' : 'Entrega',
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

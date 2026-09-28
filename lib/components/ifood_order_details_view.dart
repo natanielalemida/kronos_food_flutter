@@ -73,9 +73,7 @@ class IfoodOrderDetailsView extends StatelessWidget {
                                   pickup
                                       ? Icons.storefront_outlined
                                       : Icons.delivery_dining,
-                                  pickup
-                                      ? 'Retirada na loja'
-                                      : 'Entrega no endereço'),
+                                  pickup ? 'Retirada' : 'Entrega'),
                               if (order.customer.phone.localizer.isNotEmpty)
                                 OrderMeta(Icons.tag,
                                     'Localizador ${order.customer.phone.localizer}'),
@@ -191,7 +189,7 @@ class IfoodOrderDetailsView extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(pickup ? 'RETIRADA NA LOJA' : 'ENTREGA NO ENDEREÇO',
+                Text(pickup ? 'RETIRADA' : 'ENTREGA',
                     style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,

@@ -245,7 +245,7 @@ void main() {
     expect(
         find.descendant(
             of: find.byType(DarcapioOrderDetails),
-            matching: find.text('ENTREGA NO ENDEREÇO')),
+            matching: find.text('ENTREGA')),
         findsOneWidget);
     await tester.tap(find.text('Selecionar entregador e despachar'));
     await tester.pumpAndSettle();

@@ -16,7 +16,7 @@ class FoodFulfillmentBadge extends StatelessWidget {
           Icon(pickup ? Icons.storefront_outlined : Icons.delivery_dining,
               size: 16, color: color),
           const SizedBox(width: 6),
-          Text(pickup ? 'RETIRADA NA LOJA' : 'ENTREGA NO ENDEREÇO',
+          Text(pickup ? 'RETIRADA' : 'ENTREGA',
               style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w800, color: color)),
         ]));

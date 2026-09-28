@@ -94,7 +94,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cliente solicitou cancelamento'), findsOneWidget);
     expect(find.text('Pedido #0123'), findsOneWidget);
-    expect(find.text('Retirada na loja'), findsOneWidget);
+    expect(find.text('Retirada'), findsOneWidget);
     expect(find.textContaining('X-burger'), findsOneWidget);
     await tester.tap(find.text('Ver pedido'));
     expect(viewCalls, 1);
