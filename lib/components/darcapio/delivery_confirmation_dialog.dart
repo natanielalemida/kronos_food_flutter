@@ -28,8 +28,21 @@ class _DeliveryConfirmationDialogState
   static const red = Color(0xFFB42318);
   final code = TextEditingController();
   final focus = FocusNode();
+  final submitKey = GlobalKey();
   bool submitting = false, incorrectCode = false, needsRefresh = false;
   String? failure;
+
+  void revealSubmit() {
+    if (code.text.length != 6) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = submitKey.currentContext;
+      if (!mounted || target == null) return;
+      Scrollable.ensureVisible(target,
+          alignment: 1,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut);
+    });
+  }
 
   Future<void> submit() async {
     if (submitting || needsRefresh || code.text.length != 6) return;
@@ -86,6 +99,7 @@ class _DeliveryConfirmationDialogState
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         scrollable: true,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         title: Text('Confirmar $kind',
             style: const TextStyle(fontWeight: FontWeight.w700)),
         content: SizedBox(
@@ -158,7 +172,10 @@ class _DeliveryConfirmationDialogState
                     fontWeight: FontWeight.w700,
                     letterSpacing: 6),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) {
+                  setState(() {});
+                  revealSubmit();
+                },
                 onSubmitted: (_) => submit(),
                 decoration: InputDecoration(
                   labelText: 'Código do cliente',
@@ -182,37 +199,47 @@ class _DeliveryConfirmationDialogState
                       : null,
                 ),
               ),
+              const SizedBox(height: 8),
+              OverflowBar(
+                alignment: MainAxisAlignment.end,
+                spacing: 8,
+                overflowSpacing: 8,
+                overflowAlignment: OverflowBarAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed:
+                        submitting ? null : () => Navigator.pop(context, false),
+                    child: Text(
+                        needsRefresh ? 'Voltar e atualizar pedido' : 'Voltar'),
+                  ),
+                  FilledButton.icon(
+                    key: submitKey,
+                    onPressed:
+                        submitting || needsRefresh || code.text.length != 6
+                            ? null
+                            : submit,
+                    style: FilledButton.styleFrom(
+                        backgroundColor: OrderStyle.teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 16)),
+                    icon: submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.check_circle_outline, size: 20),
+                    label: Text(submitting
+                        ? 'Conferindo código…'
+                        : incorrectCode
+                            ? 'Conferir novamente'
+                            : 'Confirmar'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        actions: [
-          TextButton(
-            onPressed: submitting ? null : () => Navigator.pop(context, false),
-            child: Text(needsRefresh ? 'Voltar e atualizar pedido' : 'Voltar'),
-          ),
-          FilledButton.icon(
-            onPressed: submitting || needsRefresh || code.text.length != 6
-                ? null
-                : submit,
-            style: FilledButton.styleFrom(
-                backgroundColor: OrderStyle.teal,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
-            icon: submitting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check_circle_outline, size: 20),
-            label: Text(submitting
-                ? 'Conferindo código…'
-                : incorrectCode
-                    ? 'Conferir novamente'
-                    : 'Confirmar'),
-          ),
-        ],
       ),
     );
   }
