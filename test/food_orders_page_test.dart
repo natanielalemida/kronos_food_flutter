@@ -286,8 +286,11 @@ void main() {
         await tester.tap(find.text('Voltar à lista'));
         await tester.pumpAndSettle();
       }
-      await tester
-          .tap(find.byKey(ValueKey('darcapio-order-${darcapio.current.id}')));
+      final darcapioCard =
+          find.byKey(ValueKey('darcapio-order-${darcapio.current.id}'));
+      await tester.ensureVisible(darcapioCard);
+      await tester.pumpAndSettle();
+      await tester.tap(darcapioCard);
       await tester.pumpAndSettle();
       expect(find.text('Ação iFood de teste'), findsNothing);
       await tester.tap(find.text('Aceitar pedido'));

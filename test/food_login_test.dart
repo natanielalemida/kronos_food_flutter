@@ -41,10 +41,11 @@ void main() {
         loginRequests.add(jsonDecode(await utf8.decoder.bind(request).join())
             as Map<String, dynamic>);
         request.response.write(jsonEncode(loginResponse));
-      } else if (request.uri.path == '/arc/darcapio/food/pedidos') {
+      } else if (request.uri.path ==
+          '/arc/darcapio/food/pedidos/movimento-atual') {
         orderSessions.add(request.headers.value('Auth'));
         expect(request.headers.value('Empresa'), '1');
-        request.response.write('[]');
+        request.response.write('{"Movimento":null,"Itens":[]}');
       } else {
         request.response.statusCode = 404;
       }

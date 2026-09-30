@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'couriers_page.dart';
+import 'darcapio_order_history_page.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../components/darcapio/order_style.dart';
@@ -136,6 +137,10 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
         setState(() {
           company = currentCompany;
           orders = result;
+          if (selectedId?.startsWith('darcapio-order-') == true &&
+              !orders.any((o) => 'darcapio-order-${o.id}' == selectedId)) {
+            selectedId = null;
+          }
           error = null;
         });
       }
@@ -310,6 +315,12 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
     ]);
   }
 
+  void openHistory() => Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+          builder: (_) => DarcapioOrderHistoryPage(
+              repository: repository, onPrint: printOrder)));
+
   Widget connection(String source, bool connecting, bool connected) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(
@@ -408,15 +419,46 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
               decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(bottom: BorderSide(color: OrderStyle.line))),
-              child: Wrap(spacing: 24, runSpacing: 8, children: [
-                connection(
-                    'Darcapio', loading, error == null && company != null),
-                if (company != null)
-                  DarcapioStoreControl(repository: repository),
-                if (widget.ifoodDetailsBuilder != null)
-                  connection(
-                      'iFood', widget.ifoodLoading, widget.ifoodConnected),
-              ]),
+              child: Wrap(
+                  spacing: 24,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    connection(
+                        'Darcapio', loading, error == null && company != null),
+                    if (company != null)
+                      DarcapioStoreControl(repository: repository),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (!loading && error == null && company != null) ...[
+                        const Icon(Icons.point_of_sale,
+                            size: 16, color: OrderStyle.teal),
+                        const SizedBox(width: 6),
+                        Flexible(
+                            child: Text(
+                                repository.currentMovement == null
+                                    ? 'Darcapio · Sem caixa aberto'
+                                    : 'Darcapio · Movimento #${repository.currentMovement!.code}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: OrderStyle.ink))),
+                        const SizedBox(width: 8),
+                      ],
+                      if (compactHeader)
+                        IconButton(
+                            tooltip: 'Histórico Darcapio',
+                            onPressed:
+                                busy || company == null ? null : openHistory,
+                            icon: const Icon(Icons.history, size: 20)),
+                      if (!compactHeader)
+                        TextButton.icon(
+                            onPressed:
+                                busy || company == null ? null : openHistory,
+                            icon: const Icon(Icons.history, size: 17),
+                            label: const Text('Histórico Darcapio')),
+                    ]),
+                    if (widget.ifoodDetailsBuilder != null)
+                      connection(
+                          'iFood', widget.ifoodLoading, widget.ifoodConnected),
+                  ]),
             ),
             if (error != null)
               MaterialBanner(

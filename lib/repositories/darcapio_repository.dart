@@ -39,6 +39,36 @@ class DarcapioCourier {
       darcapioField(json, 'nome') as String);
 }
 
+class DarcapioCashMovement {
+  final int code;
+  final DateTime opened;
+  final DateTime? closed;
+  final bool isOpen;
+  const DarcapioCashMovement(
+      {required this.code,
+      required this.opened,
+      this.closed,
+      required this.isOpen});
+  factory DarcapioCashMovement.fromJson(dynamic json) => DarcapioCashMovement(
+      code: (darcapioField(json, 'codigo') as num).toInt(),
+      opened: DateTime.parse(darcapioField(json, 'dataAbertura')).toLocal(),
+      closed: darcapioField(json, 'dataFechamento') == null
+          ? null
+          : DateTime.parse(darcapioField(json, 'dataFechamento')).toLocal(),
+      isOpen: darcapioField(json, 'aberto') == true);
+}
+
+class DarcapioOrderPage {
+  final int page, size, total;
+  final List<DarcapioOrder> orders;
+  const DarcapioOrderPage(
+      {required this.page,
+      required this.size,
+      required this.total,
+      required this.orders});
+  bool get hasNext => (page + 1) * size < total;
+}
+
 class DarcapioOrder {
   final String id, status, customer, payment;
   final int version, delivery;
@@ -112,6 +142,7 @@ class DarcapioOrder {
 
 class DarcapioRepository {
   final Dio dio;
+  DarcapioCashMovement? currentMovement;
   String? _server, _token;
   int? _company;
   DarcapioRepository({Dio? client})
@@ -169,14 +200,50 @@ class DarcapioRepository {
 
   Future<List<DarcapioOrder>> list() async {
     await useExistingSession();
-    final response =
-        await dio.get('$_server/darcapio/food/pedidos', options: _options);
-    if (response.data is! List) {
+    final response = await dio.get(
+        '$_server/darcapio/food/pedidos/movimento-atual',
+        options: _options);
+    final items = darcapioField(response.data, 'itens');
+    if (items is! List) {
       throw StateError('Resposta de pedidos inválida.');
     }
-    return (response.data as List)
+    final movement = darcapioField(response.data, 'movimento');
+    final orders = items
         .map((e) => DarcapioOrder.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    currentMovement =
+        movement == null ? null : DarcapioCashMovement.fromJson(movement);
+    return orders;
+  }
+
+  Future<List<DarcapioCashMovement>> movements({int? code}) async {
+    await useExistingSession();
+    final response = await dio.get('$_server/darcapio/food/pedidos/movimentos',
+        queryParameters: {if (code != null) 'codigo': code}, options: _options);
+    if (response.data is! List) {
+      throw StateError('Resposta de movimentos inválida.');
+    }
+    return (response.data as List).map(DarcapioCashMovement.fromJson).toList();
+  }
+
+  Future<DarcapioOrderPage> history(int movement, {int page = 0}) async {
+    await useExistingSession();
+    final response = await dio.get('$_server/darcapio/food/pedidos/paginados',
+        queryParameters: {
+          'movimentoCaixa': movement,
+          'pagina': page,
+          'tamanho': 100
+        },
+        options: _options);
+    final items = darcapioField(response.data, 'itens');
+    if (items is! List) throw StateError('Resposta de histórico inválida.');
+    return DarcapioOrderPage(
+        page: (darcapioField(response.data, 'pagina') as num).toInt(),
+        size: (darcapioField(response.data, 'tamanho') as num).toInt(),
+        total: (darcapioField(response.data, 'total') as num).toInt(),
+        orders: items
+            .map((e) => DarcapioOrder.fromJson(Map<String, dynamic>.from(e)))
+            .toList());
   }
 
   Future<Map<String, dynamic>> storeStatus() async {

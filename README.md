@@ -23,6 +23,23 @@ As conexões atualizam independentemente, com seu estado no cabeçalho. Uma falh
 em um canal não bloqueia o outro. Detalhes e ações usam o contrato de cada origem;
 pedidos Darcapio nunca são enviados às ações ou automações do iFood.
 
+A lista Darcapio acompanha o **movimento de caixa aberto usado pelo recebimento
+no ERP**. O vínculo é o código de movimento da pré-venda, sem corte por data:
+um caixa que atravessa a meia-noite mantém todos os seus pedidos. Ao fechar o
+caixa, a lista fica vazia; ao abrir outro, passa a exibir o novo movimento na
+próxima atualização automática. **Todos** inclui concluídos e cancelados do
+movimento atual. Sem caixa aberto, o histórico continua disponível.
+
+**Histórico Darcapio** permite escolher entre os 100 movimentos mais recentes
+com pedidos ou buscar um movimento anterior pelo número. A consulta é paginada,
+inclui todos os status, permite imprimir o cupom e exportar todos os pedidos do
+movimento em CSV. O histórico não oferece ações para avançar ou cancelar pedidos.
+O filtro vale somente para Darcapio; a consulta do iFood segue independente.
+Food e Service devem ser atualizados juntos; esta mudança usa o vínculo de caixa
+já existente e não exige migração do banco.
+Verificação: `flutter test test/food_cash_movement_test.dart` e os testes
+`MovimentoCaixaFoodTests` do Service.
+
 O fluxo Darcapio usa **Aguardando aceite → Em preparo → Pronto → Em rota de
 entrega → Concluído**. Aceitar já inicia o preparo, sem uma ação intermediária.
 Retirada pula a rota; cancelamentos continuam identificados. Pedidos antigos

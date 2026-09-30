@@ -15,6 +15,9 @@ class FoodOrderList extends StatefulWidget {
   final bool kanban;
   final Map<String, String> attention;
   final bool actionsEnabled;
+  final bool initialShowAll;
+  final bool automaticUpdates;
+  final String searchHint;
   final void Function(FoodOrderEntry, DarcapioAction)? onOrderAction;
   const FoodOrderList(
       {super.key,
@@ -25,6 +28,9 @@ class FoodOrderList extends StatefulWidget {
       this.kanban = false,
       this.attention = const {},
       this.actionsEnabled = true,
+      this.initialShowAll = false,
+      this.automaticUpdates = true,
+      this.searchHint = 'Buscar nome ou nº do pedido',
       this.onOrderAction});
 
   @override
@@ -33,7 +39,7 @@ class FoodOrderList extends StatefulWidget {
 
 class _FoodOrderListState extends State<FoodOrderList> {
   final search = TextEditingController();
-  bool showAll = false;
+  late bool showAll = widget.initialShowAll;
   final Set<String> collapsed = {};
 
   @override
@@ -96,7 +102,7 @@ class _FoodOrderListState extends State<FoodOrderList> {
             onChanged: (_) => setState(() {}),
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Buscar nome ou nº do pedido',
+              hintText: widget.searchHint,
               hintStyle: const TextStyle(color: OrderStyle.muted, fontSize: 13),
               prefixIcon:
                   const Icon(Icons.search, size: 20, color: OrderStyle.muted),
@@ -165,14 +171,21 @@ class _FoodOrderListState extends State<FoodOrderList> {
           decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: OrderStyle.line))),
           child: Row(children: [
-            Icon(widget.connected ? Icons.sync : Icons.sync_problem,
+            Icon(
+                !widget.automaticUpdates
+                    ? Icons.history
+                    : widget.connected
+                        ? Icons.sync
+                        : Icons.sync_problem,
                 size: 15,
                 color: widget.connected ? OrderStyle.teal : OrderStyle.muted),
             const SizedBox(width: 8),
             Text(
-                widget.connected
-                    ? 'Atualização automática'
-                    : 'Aguardando conexão',
+                !widget.automaticUpdates
+                    ? 'Consulta do movimento'
+                    : widget.connected
+                        ? 'Atualização automática'
+                        : 'Aguardando conexão',
                 style: const TextStyle(fontSize: 11, color: OrderStyle.muted)),
           ]),
         ),

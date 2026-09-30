@@ -44,7 +44,10 @@ class FakeDarcapio extends DarcapioRepository {
     const DarcapioCourier(77, 'Ana entregadora'),
     const DarcapioCourier(78, 'João entregador')
   ];
-  FakeDarcapio() : super(client: Dio());
+  FakeDarcapio() : super(client: Dio()) {
+    currentMovement = DarcapioCashMovement(
+        code: 1, opened: DateTime(2026, 9, 29, 15), isOpen: true);
+  }
   @override
   Future<int> useExistingSession() async => 1;
   @override
@@ -357,13 +360,15 @@ void main() {
     final calls = <RequestOptions>[];
     dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
       calls.add(options);
-      handler.resolve(
-          Response(requestOptions: options, statusCode: 200, data: []));
+      handler.resolve(Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'Movimento': null, 'Itens': []}));
     }));
     final repo = DarcapioRepository(client: dio);
     await repo.list();
-    expect(
-        calls.single.path, 'https://localhost:5943/arc/darcapio/food/pedidos');
+    expect(calls.single.path,
+        'https://localhost:5943/arc/darcapio/food/pedidos/movimento-atual');
     expect(calls.single.method, 'GET');
     expect(calls.single.headers['Auth'], 'session-test-only');
     expect(calls.single.headers['Empresa'], '1');
