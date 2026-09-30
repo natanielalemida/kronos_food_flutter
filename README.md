@@ -46,6 +46,13 @@ Retirada pula a rota; cancelamentos continuam identificados. Pedidos antigos
 com status `aceito` aparecem em preparo e podem avançar diretamente para pronto.
 As ações continuam vindo do servidor, que deve ser atualizado junto com o Food.
 
+Os cartões Darcapio mostram **Aceitar** e **Recusar** durante o aceite. Depois,
+mostram a próxima ação permitida: **Marcar como pronto**, **Marcar em rota de
+entrega** e **Marcar como concluído**. Na retirada, **Pronto** oferece **Confirmar
+retirada**. Despacho exige escolher o entregador; conclusão exige o código do
+cliente. O cancelamento das demais etapas continua disponível nos detalhes.
+Verificação: `flutter test test/food_order_card_actions_test.dart`.
+
 O botão **Imprimir pedido**, ao lado do status nos detalhes, está disponível nos
 dois canais. A impressão manual usa o mesmo cupom de 80 mm e o diálogo de
 impressão do sistema. No Darcapio inclui a loja, itens, adicionais, observações,
@@ -76,7 +83,7 @@ incluindo entrega e retirada. O cliente envia o comando, versão e, quando
 solicitado, o código digitado pelo operador. A validação do código e das etapas
 ocorre no Service. Conclusão não fatura nem registra pagamento.
 Endereço, taxa e troco são exibidos no pedido. O código correto nunca vem na
-listagem Food. Recusa/cancelamento neste painel ainda não está implementado.
+listagem Food. Recusa/cancelamento exige motivo e permissão do servidor.
 
 Verificação: `flutter test test/food_orders_page_test.dart test/food_login_test.dart test/darcapio_test.dart` e análise dos arquivos
 `lib/repositories/darcapio_repository.dart` e `lib/pages/food_orders_view.dart`.

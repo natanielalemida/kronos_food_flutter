@@ -64,28 +64,35 @@ class IfoodOrderDetailsView extends StatelessWidget {
                                 source: FoodOrderSource.ifood,
                                 status: entry.status,
                                 statusLabel: entry.statusLabel,
+                                fulfillment: _fulfillment(pickup),
                                 onPrint: onPrint,
                                 printing: printing),
                             const SizedBox(height: 16),
-                            Wrap(spacing: 20, runSpacing: 8, children: [
-                              OrderMeta(
-                                  Icons.calendar_today_outlined,
-                                  DateFormat("dd/MM/yyyy 'às' HH:mm")
-                                      .format(order.createdAt.toLocal())),
-                              OrderMeta(
-                                  pickup
-                                      ? Icons.storefront_outlined
-                                      : Icons.delivery_dining,
-                                  pickup ? 'Retirada' : 'Entrega'),
-                              if (order.customer.phone.localizer.isNotEmpty)
-                                OrderMeta(Icons.tag,
-                                    'Localizador ${order.customer.phone.localizer}'),
-                              const FoodSourceBadge(FoodOrderSource.ifood),
-                              if (IfoodEventUtils.normalize(order.salesChannel)
-                                  .contains('TOTEM'))
-                                const OrderMeta(Icons.point_of_sale_outlined,
-                                    'Pedido no totem'),
-                            ]),
+                            Wrap(
+                                spacing: 20,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  OrderMeta(
+                                      Icons.calendar_today_outlined,
+                                      DateFormat("dd/MM/yyyy 'às' HH:mm")
+                                          .format(order.createdAt.toLocal())),
+                                  OrderMeta(
+                                      pickup
+                                          ? Icons.storefront_outlined
+                                          : Icons.delivery_dining,
+                                      pickup ? 'Retirada' : 'Entrega'),
+                                  if (order.customer.phone.localizer.isNotEmpty)
+                                    OrderMeta(Icons.tag,
+                                        'Localizador ${order.customer.phone.localizer}'),
+                                  const FoodSourceBadge(FoodOrderSource.ifood),
+                                  if (IfoodEventUtils.normalize(
+                                          order.salesChannel)
+                                      .contains('TOTEM'))
+                                    const OrderMeta(
+                                        Icons.point_of_sale_outlined,
+                                        'Pedido no totem'),
+                                ]),
                             if (order.schedule.deliveryDateTimeStart !=
                                 null) ...[
                               const SizedBox(height: 12),
@@ -99,8 +106,6 @@ class IfoodOrderDetailsView extends StatelessWidget {
                               alert!,
                               const SizedBox(height: 20)
                             ],
-                            _fulfillment(pickup),
-                            const SizedBox(height: 20),
                             OrderTimeline(order: order),
                             const SizedBox(height: 24),
                             if (bounds.maxWidth >= 920)
@@ -172,32 +177,32 @@ class IfoodOrderDetailsView extends StatelessWidget {
     final partner = IfoodEventUtils.isIfoodDelivery(order.delivery.deliveredBy);
     final courier = order.delivery.nomeEntregador.trim();
     return Container(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
             color: color.withValues(alpha: .07),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: .25))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-              width: 52,
-              height: 52,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                  color: Colors.white, borderRadius: BorderRadius.circular(8)),
               child: Icon(
                   pickup ? Icons.storefront_outlined : Icons.delivery_dining,
-                  size: 30,
+                  size: 22,
                   color: color)),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(pickup ? 'RETIRADA' : 'ENTREGA',
                     style: TextStyle(
-                        fontSize: 19,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: color)),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
                     pickup
                         ? 'O cliente vem buscar este pedido no balcão.'
@@ -205,17 +210,17 @@ class IfoodOrderDetailsView extends StatelessWidget {
                             ? 'Entrega iFood · Entregador parceiro'
                             : 'Entrega própria · Entregador da loja',
                     style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: OrderStyle.ink)),
                 if (!pickup && (courier.isNotEmpty || !partner)) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   Text(
                       courier.isNotEmpty
                           ? 'Entregador: $courier'
                           : 'Selecione o entregador ao despachar o pedido.',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: color)),
                 ],

@@ -283,7 +283,23 @@ class _FoodOrderListState extends State<FoodOrderList> {
     final selected = order.key == widget.selectedId;
     final accent = FoodOrderBrand.colorFor(order.source);
     final accept = actionOf(order, 'aceitar');
-    final reject = actionOf(order, 'cancelar');
+    final reject = accept == null ? null : actionOf(order, 'cancelar');
+    final next = order.darcapioOrder?.actions
+        .where((action) => action.action != 'cancelar')
+        .firstOrNull;
+    final notice = widget.attention[order.darcapioOrder?.id];
+    final textScale = (MediaQuery.textScalerOf(context).scale(14) / 14)
+        .clamp(1.0, double.infinity);
+    final metadata = Wrap(
+        spacing: 12,
+        runSpacing: 6,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OrderStatusBadge(label: order.statusLabel, status: order.status),
+          OrderMeta(Icons.schedule,
+              DateFormat('dd/MM · HH:mm').format(order.created)),
+        ]);
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Material(
@@ -299,6 +315,9 @@ class _FoodOrderListState extends State<FoodOrderList> {
         child: InkWell(
           onTap: () => widget.onSelected(order.key),
           child: Container(
+              // Keep kanban rows and action footers aligned, including cards
+              // with unread messages or no available action.
+              height: widget.kanban ? 280 * textScale : null,
               decoration: BoxDecoration(
                   border: Border(left: BorderSide(color: accent, width: 4))),
               child: Padding(
@@ -329,84 +348,111 @@ class _FoodOrderListState extends State<FoodOrderList> {
                               FoodSourceBadge(order.source)
                             ]),
                         const SizedBox(height: 8),
-                        if (widget.attention[order.darcapioOrder?.id]
-                            case final String notice)
+                        if (notice != null || widget.kanban)
                           Padding(
                               padding: const EdgeInsets.only(bottom: 8),
-                              child: Text('● $notice',
-                                  style: const TextStyle(
-                                      color: Color(0xFFB54708),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700))),
+                              child: Tooltip(
+                                  message: notice ?? '',
+                                  child: Text(notice == null ? '' : '● $notice',
+                                      maxLines: widget.kanban ? 1 : null,
+                                      overflow: widget.kanban
+                                          ? TextOverflow.ellipsis
+                                          : null,
+                                      style: const TextStyle(
+                                          color: Color(0xFFB54708),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700)))),
                         Text(order.customer,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: OrderStyle.ink, fontSize: 13)),
                         const SizedBox(height: 11),
-                        Wrap(
-                            spacing: 12,
-                            runSpacing: 6,
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              OrderStatusBadge(
-                                  label: order.statusLabel,
-                                  status: order.status),
-                              OrderMeta(
-                                  Icons.schedule,
-                                  DateFormat('dd/MM · HH:mm')
-                                      .format(order.created)),
-                            ]),
-                        if (accept != null || reject != null) ...[
+                        if (widget.kanban)
+                          Expanded(
+                              child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: SizedBox(
+                                      width: double.infinity, child: metadata)))
+                        else
+                          metadata,
+                        if (next != null) ...[
                           const SizedBox(height: 12),
                           const Divider(height: 1, color: OrderStyle.line),
                           const SizedBox(height: 10),
-                          Row(children: [
-                            if (reject != null)
-                              Expanded(
-                                  child: OutlinedButton.icon(
-                                      key: ValueKey(
-                                          '${order.key}-reject-action'),
-                                      onPressed: widget.actionsEnabled &&
-                                              widget.onOrderAction != null
-                                          ? () => widget.onOrderAction!(
-                                              order, reject)
-                                          : null,
-                                      icon: const Icon(Icons.close, size: 16),
-                                      label: const Text('Recusar'),
-                                      style: OutlinedButton.styleFrom(
-                                          foregroundColor:
-                                              const Color(0xFFB42318),
-                                          side: const BorderSide(
-                                              color: Color(0xFFF0B6B2)),
-                                          visualDensity:
-                                              VisualDensity.compact))),
-                            if (reject != null && accept != null)
-                              const SizedBox(width: 8),
-                            if (accept != null)
-                              Expanded(
-                                  child: FilledButton.icon(
-                                      key: ValueKey(
-                                          '${order.key}-accept-action'),
-                                      onPressed: widget.actionsEnabled &&
-                                              widget.onOrderAction != null
-                                          ? () => widget.onOrderAction!(
-                                              order, accept)
-                                          : null,
-                                      icon: const Icon(Icons.check, size: 16),
-                                      label: const Text('Aceitar'),
-                                      style: FilledButton.styleFrom(
-                                          backgroundColor: OrderStyle.teal,
-                                          visualDensity:
-                                              VisualDensity.compact))),
-                          ]),
+                          SizedBox(
+                              height: widget.kanban ? 40 * textScale : null,
+                              child: Row(
+                                  crossAxisAlignment: widget.kanban
+                                      ? CrossAxisAlignment.stretch
+                                      : CrossAxisAlignment.center,
+                                  children: [
+                                    if (reject != null)
+                                      Expanded(
+                                          child: OutlinedButton.icon(
+                                              key: ValueKey(
+                                                  '${order.key}-reject-action'),
+                                              onPressed: widget.actionsEnabled &&
+                                                      widget.onOrderAction !=
+                                                          null
+                                                  ? () => widget.onOrderAction!(
+                                                      order, reject)
+                                                  : null,
+                                              icon: const Icon(Icons.close,
+                                                  size: 16),
+                                              label: const Text('Recusar'),
+                                              style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      const Color(0xFFB42318),
+                                                  side: const BorderSide(
+                                                      color: Color(0xFFF0B6B2)),
+                                                  visualDensity: VisualDensity.compact))),
+                                    if (reject != null)
+                                      const SizedBox(width: 8),
+                                    Expanded(
+                                        child: FilledButton.icon(
+                                            key: ValueKey(
+                                                '${order.key}-${next.action == 'aceitar' ? 'accept' : next.action}-action'),
+                                            onPressed: widget.actionsEnabled &&
+                                                    widget.onOrderAction != null
+                                                ? () => widget.onOrderAction!(
+                                                    order, next)
+                                                : null,
+                                            icon: Icon(actionIcon(next),
+                                                size: 16),
+                                            label: Text(
+                                                actionLabel(order, next),
+                                                textAlign: TextAlign.center),
+                                            style: FilledButton.styleFrom(
+                                                backgroundColor:
+                                                    OrderStyle.statusColor(order.status),
+                                                foregroundColor: Colors.white,
+                                                visualDensity: VisualDensity.compact))),
+                                  ])),
                         ],
+                        if (next == null && widget.kanban)
+                          SizedBox(height: 23 + 40 * textScale),
                       ]))),
         ),
       ),
     );
   }
+
+  String actionLabel(FoodOrderEntry order, DarcapioAction action) =>
+      switch (action.action) {
+        'aceitar' => 'Aceitar',
+        'despachar' => 'Marcar em rota de entrega',
+        'concluir' =>
+          order.pickup ? 'Confirmar retirada' : 'Marcar como concluído',
+        _ => action.label,
+      };
+
+  IconData actionIcon(DarcapioAction action) => switch (action.action) {
+        'pronto' => Icons.takeout_dining_outlined,
+        'despachar' => Icons.delivery_dining_outlined,
+        'concluir' => Icons.check_circle_outline,
+        _ => Icons.check,
+      };
 
   DarcapioAction? actionOf(FoodOrderEntry order, String code) {
     for (final action in order.darcapioOrder?.actions ?? const []) {

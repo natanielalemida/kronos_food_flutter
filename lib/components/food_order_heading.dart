@@ -8,6 +8,7 @@ class FoodOrderHeading extends StatelessWidget {
   final FoodOrderSource source;
   final VoidCallback? onPrint;
   final bool printing;
+  final Widget? fulfillment;
   const FoodOrderHeading(
       {super.key,
       required this.number,
@@ -15,6 +16,7 @@ class FoodOrderHeading extends StatelessWidget {
       required this.statusLabel,
       required this.source,
       this.onPrint,
+      this.fulfillment,
       this.printing = false});
   @override
   Widget build(BuildContext context) =>
@@ -65,15 +67,40 @@ class FoodOrderHeading extends StatelessWidget {
                 icon: const Icon(Icons.print_outlined, size: 19)),
           ],
         ]);
+        if (fulfillment != null && bounds.maxWidth >= 1000) {
+          return Row(children: [
+            Expanded(child: heading),
+            const SizedBox(width: 24),
+            Expanded(child: fulfillment!),
+            const SizedBox(width: 24),
+            statusAndPrint,
+          ]);
+        }
         if (compact) {
           return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [heading, const SizedBox(height: 12), statusAndPrint]);
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                heading,
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerLeft, child: statusAndPrint),
+                if (fulfillment != null) ...[
+                  const SizedBox(height: 12),
+                  fulfillment!,
+                ],
+              ]);
         }
-        return Row(children: [
-          Expanded(child: heading),
-          const SizedBox(width: 20),
-          statusAndPrint
-        ]);
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Expanded(child: heading),
+                const SizedBox(width: 20),
+                statusAndPrint,
+              ]),
+              if (fulfillment != null) ...[
+                const SizedBox(height: 12),
+                fulfillment!,
+              ],
+            ]);
       });
 }

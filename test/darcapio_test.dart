@@ -104,8 +104,9 @@ void main() {
               initialOrderKey:
                   'darcapio-order-00000000-0000-0000-0000-000000000123')));
       await tester.pumpAndSettle();
-      await tester
-          .tap(find.text('Confirmar ${pickup ? 'retirada' : 'entrega'}'));
+      await tester.tap(find.descendant(
+          of: find.byType(DarcapioOrderDetails),
+          matching: find.text('Confirmar ${pickup ? 'retirada' : 'entrega'}')));
       await tester.pumpAndSettle();
       final input = find.descendant(
           of: find.byType(AlertDialog), matching: find.byType(TextField));
@@ -398,7 +399,11 @@ void main() {
     await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
     expect(fake.accepted, 1);
-    expect(find.text('Marcar como pronto'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(DarcapioOrderDetails),
+            matching: find.text('Marcar como pronto')),
+        findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('Código digitado é enviado ao Service, nunca comparado no Food',

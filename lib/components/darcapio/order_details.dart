@@ -63,6 +63,7 @@ class DarcapioOrderDetails extends StatelessWidget {
                                   source: FoodOrderSource.darcapio,
                                   status: order.status,
                                   statusLabel: order.label,
+                                  fulfillment: fulfillment(),
                                   onPrint: onPrint,
                                   printing: printing),
                               const SizedBox(height: 14),
@@ -74,20 +75,25 @@ class DarcapioOrderDetails extends StatelessWidget {
                                         icon: const Icon(Icons.forum_outlined),
                                         label: const Text(
                                             'Conversar com o cliente · Solicitações'))),
-                              Wrap(spacing: 20, runSpacing: 8, children: [
-                                OrderMeta(
-                                    Icons.calendar_today_outlined,
-                                    DateFormat("dd/MM/yyyy 'às' HH:mm")
-                                        .format(order.created)),
-                                OrderMeta(
-                                    order.pickup
-                                        ? Icons.storefront_outlined
-                                        : Icons.delivery_dining,
-                                    order.pickup ? 'Retirada' : 'Entrega'),
-                                OrderMeta(Icons.sync_rounded,
-                                    'Sincronizado no ERP · Delivery #${order.delivery.toString().padLeft(4, '0')}'),
-                                const FoodSourceBadge(FoodOrderSource.darcapio),
-                              ]),
+                              Wrap(
+                                  spacing: 20,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    OrderMeta(
+                                        Icons.calendar_today_outlined,
+                                        DateFormat("dd/MM/yyyy 'às' HH:mm")
+                                            .format(order.created)),
+                                    OrderMeta(
+                                        order.pickup
+                                            ? Icons.storefront_outlined
+                                            : Icons.delivery_dining,
+                                        order.pickup ? 'Retirada' : 'Entrega'),
+                                    OrderMeta(Icons.sync_rounded,
+                                        'Sincronizado no ERP · Delivery #${order.delivery.toString().padLeft(4, '0')}'),
+                                    const FoodSourceBadge(
+                                        FoodOrderSource.darcapio),
+                                  ]),
                               const SizedBox(height: 24),
                               if (order.status == 'recebido_erp' ||
                                   order.cancellationReason != null) ...[
@@ -104,8 +110,6 @@ class DarcapioOrderDetails extends StatelessWidget {
                                         : 'Aceite em até 10 minutos após o envio. Sem aceite, o pedido será cancelado automaticamente.')),
                                 const SizedBox(height: 20),
                               ],
-                              fulfillment(),
-                              const SizedBox(height: 20),
                               timeline(),
                               const SizedBox(height: 24),
                               if (bounds.maxWidth >= 920)
@@ -146,44 +150,44 @@ class DarcapioOrderDetails extends StatelessWidget {
         ['saiu_para_entrega', 'concluido'].contains(order.status);
     final courier = order.courierName?.trim();
     return Container(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
             color: color.withValues(alpha: .07),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: .25))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-              width: 52,
-              height: 52,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                  color: Colors.white, borderRadius: BorderRadius.circular(8)),
               child: Icon(
                   order.pickup
                       ? Icons.storefront_outlined
                       : Icons.delivery_dining,
-                  size: 30,
+                  size: 22,
                   color: color)),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(order.pickup ? 'RETIRADA' : 'ENTREGA',
                     style: TextStyle(
-                        fontSize: 19,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: color)),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
                     order.pickup
                         ? 'O cliente vem buscar este pedido no balcão.'
                         : 'Entrega própria · Entregador da loja',
                     style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         color: OrderStyle.ink,
                         fontWeight: FontWeight.w600)),
                 if (!order.pickup) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   Text(
                       courier?.isNotEmpty == true
                           ? 'Entregador: $courier'
@@ -191,7 +195,7 @@ class DarcapioOrderDetails extends StatelessWidget {
                               ? 'Entregador não informado neste pedido.'
                               : 'Selecione o entregador ao despachar o pedido.',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: courier?.isNotEmpty == true
                               ? FontWeight.w700
                               : FontWeight.w500,

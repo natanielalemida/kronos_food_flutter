@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
+import 'package:kronos_food/components/darcapio/order_details.dart';
 import 'package:kronos_food/components/food_source_badge.dart';
 import 'package:kronos_food/models/food_order_entry.dart';
 import 'package:kronos_food/models/pedido_model.dart';
@@ -103,7 +104,11 @@ void main() {
     await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
     expect(darcapio.accepted, 1);
-    expect(find.text('Marcar como pronto'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(DarcapioOrderDetails),
+            matching: find.text('Marcar como pronto')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -136,7 +141,8 @@ void main() {
         find.byKey(
             ValueKey('darcapio-order-${darcapio.current.id}-accept-action')),
         findsNothing);
-    expect(find.descendant(of: card, matching: find.text('Em preparo')), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('Em preparo')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -299,7 +305,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(darcapio.accepted, 1);
       expect(ifoodActions, 1);
-      expect(find.text('Marcar como pronto'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byType(DarcapioOrderDetails),
+              matching: find.text('Marcar como pronto')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
