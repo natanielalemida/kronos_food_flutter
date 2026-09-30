@@ -7,13 +7,15 @@ class FoodOrderHeading extends StatelessWidget {
   final String number, status, statusLabel;
   final FoodOrderSource source;
   final VoidCallback? onPrint;
+  final bool printing;
   const FoodOrderHeading(
       {super.key,
       required this.number,
       required this.status,
       required this.statusLabel,
       required this.source,
-      this.onPrint});
+      this.onPrint,
+      this.printing = false});
   @override
   Widget build(BuildContext context) =>
       LayoutBuilder(builder: (context, bounds) {
@@ -56,7 +58,7 @@ class FoodOrderHeading extends StatelessWidget {
           if (onPrint != null) ...[
             const SizedBox(width: 10),
             IconButton.outlined(
-                onPressed: onPrint,
+                onPressed: printing ? null : onPrint,
                 tooltip: 'Imprimir pedido',
                 style: IconButton.styleFrom(
                     foregroundColor: FoodOrderBrand.colorFor(source)),

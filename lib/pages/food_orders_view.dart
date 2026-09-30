@@ -14,6 +14,8 @@ import '../models/food_order_entry.dart';
 import '../models/pedido_model.dart';
 import '../models/food_store_identity.dart';
 import '../components/food_order_brand.dart';
+import '../models/order_receipt.dart';
+import '../service/order_receipt_service.dart';
 
 class FoodOrdersView extends StatefulWidget {
   final DarcapioRepository? repository;
@@ -56,6 +58,25 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
   int? identityCompany;
   DateTime? identityCheckedAt;
   bool identityLoading = false;
+  bool printing = false;
+
+  Future<void> printOrder(DarcapioOrder order) async {
+    if (printing) return;
+    final receipt =
+        OrderReceipt.fromDarcapio(order, storeName: storeIdentity?.name);
+    setState(() => printing = true);
+    try {
+      await printOrderReceipt(receipt);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Não foi possível imprimir o pedido. Confira a impressora e tente novamente.')));
+      }
+    } finally {
+      if (mounted) setState(() => printing = false);
+    }
+  }
 
   @override
   void initState() {
@@ -447,6 +468,8 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
                           repository: repository,
                           busy: busy,
                           blocked: error != null,
+                          onPrint: () => printOrder(selected.darcapioOrder!),
+                          printing: printing,
                           onAction: (action) =>
                               advance(selected.darcapioOrder!, action),
                           onChat: () =>

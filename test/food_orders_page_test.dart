@@ -97,12 +97,13 @@ void main() {
     await tester.tap(find.byKey(
         const ValueKey('darcapio-order-00000000-0000-0000-0000-000000000123')));
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Imprimir pedido'), findsOneWidget);
     await tester.tap(find.text('Aceitar pedido'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
     expect(darcapio.accepted, 1);
-    expect(find.text('Iniciar preparo'), findsOneWidget);
+    expect(find.text('Marcar como pronto'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -135,7 +136,7 @@ void main() {
         find.byKey(
             ValueKey('darcapio-order-${darcapio.current.id}-accept-action')),
         findsNothing);
-    expect(find.text('Em preparo'), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('Em preparo')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -225,7 +226,8 @@ void main() {
         find.byKey(ValueKey('ifood-order-${ifoodOrder.id}')), findsOneWidget);
     expect(find.byKey(ValueKey('darcapio-order-${darcapio.current.id}')),
         findsOneWidget);
-    expect(find.text('Novos pedidos'), findsOneWidget);
+    expect(find.byKey(const ValueKey('food-order-group-Aguardando aceite')),
+        findsOneWidget);
     expect(find.text('#0123'), findsNWidgets(2));
     expect(find.byType(FoodSourceBadge), findsNWidgets(2));
 
@@ -294,7 +296,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(darcapio.accepted, 1);
       expect(ifoodActions, 1);
-      expect(find.text('Iniciar preparo'), findsOneWidget);
+      expect(find.text('Marcar como pronto'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -341,7 +343,8 @@ void main() {
         find.byKey(const ValueKey(
             'darcapio-order-00000000-0000-0000-0000-000000000123')),
         findsOneWidget);
-    expect(find.text('Novos pedidos'), findsOneWidget);
+    expect(find.byKey(const ValueKey('food-order-group-Aguardando aceite')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

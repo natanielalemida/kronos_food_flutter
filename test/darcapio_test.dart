@@ -65,8 +65,8 @@ class FakeDarcapio extends DarcapioRepository {
     receivedCourier = courierCode;
     if (pendingAdvance != null) await pendingAdvance!.future;
     if (advanceFailure != null) throw advanceFailure!;
-    current = order('aceito', 2,
-        actions: [const DarcapioAction('preparar', 'Iniciar preparo')]);
+    current = order('em_preparo', 2,
+        actions: [const DarcapioAction('pronto', 'Marcar como pronto')]);
   }
 }
 
@@ -393,7 +393,7 @@ void main() {
     await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
     expect(fake.accepted, 1);
-    expect(find.text('Iniciar preparo'), findsOneWidget);
+    expect(find.text('Marcar como pronto'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('Código digitado é enviado ao Service, nunca comparado no Food',

@@ -6,6 +6,7 @@ import '../service/preferences_service.dart';
 import '../models/darcapio_delivery_map.dart';
 import '../models/food_store_identity.dart';
 import '../models/courier_management.dart';
+import '../models/darcapio_order_status.dart';
 
 dynamic darcapioField(dynamic value, String key) {
   if (value is! Map) return null;
@@ -106,18 +107,7 @@ class DarcapioOrder {
             .map((e) => Map<String, dynamic>.from(e))
             .toList());
   }
-  String get label =>
-      const {
-        'recebido_erp': 'Aguardando aceite',
-        'aceito': 'Aceito',
-        'em_preparo': 'Em preparo',
-        'pronto_retirada': 'Pronto para retirada',
-        'pronto_entrega': 'Pronto para entrega',
-        'saiu_para_entrega': 'Saiu para entrega',
-        'concluido': 'Concluído',
-        'cancelado': 'Cancelado'
-      }[status] ??
-      status;
+  String get label => darcapioStatusLabel(status);
 }
 
 class DarcapioRepository {

@@ -15,6 +15,8 @@ class DarcapioOrderDetails extends StatelessWidget {
   final ValueChanged<DarcapioAction> onAction;
   final VoidCallback? onBack;
   final VoidCallback? onChat;
+  final VoidCallback? onPrint;
+  final bool printing;
   final DarcapioRepository? repository;
   const DarcapioOrderDetails(
       {super.key,
@@ -24,7 +26,9 @@ class DarcapioOrderDetails extends StatelessWidget {
       required this.onAction,
       this.onBack,
       this.repository,
-      this.onChat});
+      this.onChat,
+      this.onPrint,
+      this.printing = false});
 
   @override
   Widget build(BuildContext context) =>
@@ -58,7 +62,9 @@ class DarcapioOrderDetails extends StatelessWidget {
                                       order.delivery.toString().padLeft(4, '0'),
                                   source: FoodOrderSource.darcapio,
                                   status: order.status,
-                                  statusLabel: order.label),
+                                  statusLabel: order.label,
+                                  onPrint: onPrint,
+                                  printing: printing),
                               const SizedBox(height: 14),
                               if (onChat != null)
                                 Align(
@@ -199,7 +205,7 @@ class DarcapioOrderDetails extends StatelessWidget {
     if (order.status == 'cancelado') {
       return FoodOrderProgress(progress: 0, cancelled: true, steps: [
         FoodOrderProgressStep(
-            label: 'Recebido',
+            label: 'Aguardando aceite',
             icon: Icons.receipt_long_outlined,
             color: OrderStyle.statusColor('recebido_erp'),
             time: order.created),
@@ -210,20 +216,18 @@ class DarcapioOrderDetails extends StatelessWidget {
       ]);
     }
     final steps = [
-      ('Recebido', Icons.receipt_long_outlined, 'recebido_erp'),
-      ('Aceito', Icons.check_circle_outline, 'aceito'),
+      ('Aguardando aceite', Icons.receipt_long_outlined, 'recebido_erp'),
       ('Em preparo', Icons.soup_kitchen_outlined, 'em_preparo'),
       ('Pronto', Icons.takeout_dining_outlined, 'pronto_entrega'),
       if (!order.pickup)
-        ('Em entrega', Icons.delivery_dining, 'saiu_para_entrega'),
+        ('Em rota de entrega', Icons.delivery_dining, 'saiu_para_entrega'),
       ('Concluído', Icons.task_alt, 'concluido'),
     ];
     final stage = switch (order.status) {
-      'recebido_erp' => 0,
-      'aceito' => 1,
-      'em_preparo' => 2,
-      'pronto_retirada' || 'pronto_entrega' => 3,
-      'saiu_para_entrega' => 4,
+      'aguardando_erp' || 'recebido_erp' || 'aguardando_aceite' => 0,
+      'aceito' || 'em_preparo' => 1,
+      'pronto_retirada' || 'pronto_entrega' || 'pronto' => 2,
+      'saiu_para_entrega' || 'em_rota_entrega' => 3,
       'concluido' => steps.length - 1,
       _ => -1,
     };

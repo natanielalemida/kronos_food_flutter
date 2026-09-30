@@ -23,7 +23,19 @@ As conexões atualizam independentemente, com seu estado no cabeçalho. Uma falh
 em um canal não bloqueia o outro. Detalhes e ações usam o contrato de cada origem;
 pedidos Darcapio nunca são enviados às ações ou automações do iFood.
 
-“Novos pedidos” contém apenas pedidos aguardando aceite. A modalidade
+O fluxo Darcapio usa **Aguardando aceite → Em preparo → Pronto → Em rota de
+entrega → Concluído**. Aceitar já inicia o preparo, sem uma ação intermediária.
+Retirada pula a rota; cancelamentos continuam identificados. Pedidos antigos
+com status `aceito` aparecem em preparo e podem avançar diretamente para pronto.
+As ações continuam vindo do servidor, que deve ser atualizado junto com o Food.
+
+O botão **Imprimir pedido**, ao lado do status nos detalhes, está disponível nos
+dois canais. A impressão manual usa o mesmo cupom de 80 mm e o diálogo de
+impressão do sistema. No Darcapio inclui a loja, itens, adicionais, observações,
+pagamento, troco e endereço de entrega; retirada não imprime endereço.
+Verificação: `flutter test test/order_receipt_test.dart test/food_order_details_design_test.dart test/food_orders_page_test.dart`.
+
+“Aguardando aceite” contém apenas pedidos aguardando aceite. A modalidade
 “Entrega no endereço” ou “Retirada na loja” aparece separada do status no cartão.
 Pedidos prontos e pedidos que saíram para entrega ficam nas respectivas colunas,
 atualizadas também quando a etapa muda fora do Food.

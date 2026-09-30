@@ -40,12 +40,12 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       const stages = [
-        ('recebido_erp', 'PLC', 'Novos pedidos'),
+        ('recebido_erp', 'PLC', 'Aguardando aceite'),
         ('aceito', 'CFM', 'Em preparo'),
         ('em_preparo', 'CFM', 'Em preparo'),
-        ('pronto_entrega', 'RTP', 'Prontos'),
-        ('saiu_para_entrega', 'DSP', 'Em entrega'),
-        ('concluido', 'CON', 'Concluídos'),
+        ('pronto_entrega', 'RTP', 'Pronto'),
+        ('saiu_para_entrega', 'DSP', 'Em rota de entrega'),
+        ('concluido', 'CON', 'Concluído'),
         ('cancelado', 'CAN', 'Cancelados'),
       ];
       final darcapio = [
@@ -93,7 +93,10 @@ void main() {
           expectInGroup(card, stages[i].$3);
         }
       }
-      for (final (number, group) in [(40, 'Novos pedidos'), (41, 'Prontos')]) {
+      for (final (number, group) in [
+        (40, 'Aguardando aceite'),
+        (41, 'Pronto')
+      ]) {
         final card = find.byKey(ValueKey('darcapio-order-darcapio-$number'));
         if (kanban) {
           await tester.ensureVisible(card);
@@ -128,23 +131,28 @@ void main() {
         kanban: kanban,
       )));
       await tester.pumpAndSettle();
-      expectInGroup(card, 'Novos pedidos');
-      expect(find.text('Aguardando aceite'), findsOneWidget);
+      expectInGroup(card, 'Aguardando aceite');
+      expect(
+          find.descendant(of: card, matching: find.text('Aguardando aceite')),
+          findsOneWidget);
       expect(find.text('ENTREGA'), findsOneWidget);
 
       repository.current = order('pronto_entrega', 4, pickup: false);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expectInGroup(card, 'Prontos');
-      expect(find.text('Novos pedidos'), findsNothing);
-      expect(find.text('Pronto para entrega'), findsOneWidget);
+      expectInGroup(card, 'Pronto');
+      expect(find.text('Aguardando aceite'), findsNothing);
+      expect(find.descendant(of: card, matching: find.text('Pronto')),
+          findsOneWidget);
 
       repository.current = order('saiu_para_entrega', 5, pickup: false);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expectInGroup(card, 'Em entrega');
-      expect(find.text('Prontos'), findsNothing);
-      expect(find.text('Saiu para entrega'), findsOneWidget);
+      expectInGroup(card, 'Em rota de entrega');
+      expect(find.text('Pronto'), findsNothing);
+      expect(
+          find.descendant(of: card, matching: find.text('Em rota de entrega')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

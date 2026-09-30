@@ -19,11 +19,13 @@ class IfoodOrderDetailsView extends StatelessWidget {
   final Widget? tracking;
   final Widget? alert;
   final VoidCallback onPrint;
+  final bool printing;
   const IfoodOrderDetailsView(
       {super.key,
       required this.order,
       required this.actions,
       required this.onPrint,
+      this.printing = false,
       this.tracking,
       this.alert});
 
@@ -62,7 +64,8 @@ class IfoodOrderDetailsView extends StatelessWidget {
                                 source: FoodOrderSource.ifood,
                                 status: entry.status,
                                 statusLabel: entry.statusLabel,
-                                onPrint: onPrint),
+                                onPrint: onPrint,
+                                printing: printing),
                             const SizedBox(height: 16),
                             Wrap(spacing: 20, runSpacing: 8, children: [
                               OrderMeta(

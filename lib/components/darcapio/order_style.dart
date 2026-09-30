@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../food_order_brand.dart';
+import '../../models/darcapio_order_status.dart';
 
 class OrderStyle {
   static const teal = Color(0xFF006D70);
@@ -13,11 +14,12 @@ class OrderStyle {
 
   static String money(num value) => currency.format(value);
 
-  static Color statusColor(String status) => switch (status) {
-        'recebido_erp' => const Color(0xFFDC7130),
-        'aceito' || 'em_preparo' => const Color(0xFF3474BA),
-        'pronto_retirada' || 'pronto_entrega' => const Color(0xFF05856E),
-        'saiu_para_entrega' => const Color(0xFF8062B0),
+  static Color statusColor(String status) =>
+      switch (darcapioOrderStage(status)) {
+        'aguardando_aceite' => const Color(0xFFDC7130),
+        'em_preparo' => const Color(0xFF3474BA),
+        'pronto' => const Color(0xFF05856E),
+        'em_rota_entrega' => const Color(0xFF8062B0),
         'concluido' => const Color(0xFF617367),
         'cancelado' => const Color(0xFFBD5353),
         'atencao' => const Color(0xFFBD5353),
@@ -27,16 +29,24 @@ class OrderStyle {
 
   static const groups = [
     ('Precisam de atenção', ['atencao'], Icons.priority_high),
-    ('Novos pedidos', ['recebido_erp'], Icons.notifications_active_outlined),
+    (
+      'Aguardando aceite',
+      ['aguardando_erp', 'recebido_erp', 'aguardando_aceite'],
+      Icons.notifications_active_outlined
+    ),
     ('Em preparo', ['aceito', 'em_preparo'], Icons.soup_kitchen_outlined),
     (
-      'Prontos',
-      ['pronto_retirada', 'pronto_entrega'],
+      'Pronto',
+      ['pronto_retirada', 'pronto_entrega', 'pronto'],
       Icons.takeout_dining_outlined
     ),
-    ('Em entrega', ['saiu_para_entrega'], Icons.delivery_dining_outlined),
+    (
+      'Em rota de entrega',
+      ['saiu_para_entrega', 'em_rota_entrega'],
+      Icons.delivery_dining_outlined
+    ),
     ('Agendados', ['agendado'], Icons.event_available_outlined),
-    ('Concluídos', ['concluido'], Icons.check_circle_outline),
+    ('Concluído', ['concluido'], Icons.check_circle_outline),
     ('Cancelados', ['cancelado'], Icons.cancel_outlined),
   ];
 }
