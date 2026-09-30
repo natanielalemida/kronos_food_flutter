@@ -50,7 +50,50 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('Cartão exige código para concluir; retirada: $pickup',
+    for (final details in [false, true]) {
+      testWidgets(
+          'Conclui sem código conforme contrato Food; retirada: $pickup; detalhes: $details',
+          (tester) async {
+        final repository = CardFlowRepository('concluido')
+          ..current = order(pickup ? 'pronto_retirada' : 'saiu_para_entrega', 4,
+              pickup: pickup,
+              actions: [
+                DarcapioAction.fromJson({
+                  'Acao': 'concluir',
+                  'Rotulo': pickup ? 'Confirmar retirada' : 'Confirmar entrega',
+                  'ExigeCodigo': false,
+                }),
+              ]);
+        await openOrders(tester, repository, details: details);
+        final label = pickup
+            ? 'Confirmar retirada'
+            : details
+                ? 'Confirmar entrega'
+                : 'Marcar como concluído';
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        final input = find.descendant(
+            of: find.byType(AlertDialog), matching: find.byType(TextField));
+        expect(input, findsNothing);
+        expect(repository.accepted, 0);
+        // Fechar a confirmação não deve finalizar o pedido.
+        await tester.tap(find.text('Voltar'));
+        await tester.pumpAndSettle();
+        expect(repository.accepted, 0);
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirmar'));
+        await tester.pumpAndSettle();
+        expect(repository.accepted, 1);
+        expect(repository.actionTaken, 'concluir');
+        expect(repository.receivedCode, isNull);
+        expect(repository.current.status, 'concluido');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+
+    testWidgets('Servidor antigo ainda pode exigir código; retirada: $pickup',
         (tester) async {
       final repository = CardFlowRepository('concluido')
         ..current = order(pickup ? 'pronto_retirada' : 'saiu_para_entrega', 4,
@@ -162,12 +205,17 @@ void main() {
   });
 }
 
-Future<void> openOrders(WidgetTester tester, FakeDarcapio repository) async {
+Future<void> openOrders(WidgetTester tester, FakeDarcapio repository,
+    {bool details = false}) async {
   tester.view.physicalSize = const Size(1200, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(
-      MaterialApp(home: FoodOrdersView(repository: repository, kanban: true)));
+  await tester.pumpWidget(MaterialApp(
+      home: FoodOrdersView(
+          repository: repository,
+          kanban: true,
+          initialOrderKey:
+              details ? 'darcapio-order-${repository.current.id}' : null)));
   await tester.pumpAndSettle();
 }

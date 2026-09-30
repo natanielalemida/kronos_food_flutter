@@ -49,8 +49,12 @@ As ações continuam vindo do servidor, que deve ser atualizado junto com o Food
 Os cartões Darcapio mostram **Aceitar** e **Recusar** durante o aceite. Depois,
 mostram a próxima ação permitida: **Marcar como pronto**, **Marcar em rota de
 entrega** e **Marcar como concluído**. Na retirada, **Pronto** oferece **Confirmar
-retirada**. Despacho exige escolher o entregador; conclusão exige o código do
-cliente. O cancelamento das demais etapas continua disponível nos detalhes.
+retirada**. Despacho exige escolher o entregador. No Kronos Food, a conclusão de
+entrega ou retirada pede apenas a confirmação do operador, sem código do cliente.
+O app do entregador continua exigindo o código. O cancelamento das demais etapas
+continua disponível nos detalhes. É necessário atualizar o Kronos Service, que
+envia `ExigeCodigo: false` na ação de conclusão e autoriza essa dispensa somente
+na rota autenticada do Food; versões antigas do Service ainda solicitam o código.
 Verificação: `flutter test test/food_order_card_actions_test.dart`.
 
 O botão **Imprimir pedido**, ao lado do status nos detalhes, está disponível nos
@@ -67,8 +71,8 @@ atualizadas também quando a etapa muda fora do Food.
 O pedido concluído pelo cliente no Darcapio é sincronizado uma única vez para o
 ERP como um Delivery vinculado a uma pré-venda não faturada. O Food só o recebe
 depois dessa confirmação. Aceite, preparo, pronto e conclusão atualizam as
-etapas desse mesmo Delivery e retornam a situação ao Darcapio; não criam outra
-venda, não faturam e não lançam movimento financeiro.
+etapas desse mesmo Delivery e retornam a situação ao Darcapio, sem criar outra
+venda. A conclusão mantém o faturamento da venda vinculada executado pelo Service.
 
 Configuração da fixture local: servidor `https://localhost:5943/arc`, empresa `1`
 (Loja A) ou `2` (Loja B), terminal `91001` e usuário ERP `darcapio.local`, com a
@@ -79,9 +83,9 @@ existentes; não lê nem armazena uma senha adicional.
 
 O servidor exige sessão da aplicação Kronos Food 2 (9), empresa e permissões de
 Delivery. As ações vêm em `AcoesPermitidas`, calculadas pelo Kronos Service,
-incluindo entrega e retirada. O cliente envia o comando, versão e, quando
-solicitado, o código digitado pelo operador. A validação do código e das etapas
-ocorre no Service. Conclusão não fatura nem registra pagamento.
+incluindo entrega e retirada. O cliente envia o comando e a versão; a conclusão
+pelo Food não precisa de `CodigoConfirmacao`. O Service mantém as validações de
+etapa, versão, empresa e privilégios e registra o operador no histórico.
 Endereço, taxa e troco são exibidos no pedido. O código correto nunca vem na
 listagem Food. Recusa/cancelamento exige motivo e permissão do servidor.
 

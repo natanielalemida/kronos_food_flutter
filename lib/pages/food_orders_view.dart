@@ -180,7 +180,8 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
   Future<void> advance(DarcapioOrder order, DarcapioAction action,
       {bool reportInConversation = false}) async {
     if (busy) return;
-    // Só o Service decide quais ações existem e se o código é válido.
+    // O Service oferece a conclusão Food sem código; a exigência abaixo mantém
+    // compatibilidade com servidores antigos que ainda solicitam a conferência.
     setState(() => busy = true);
     if (action.requiresCode) {
       try {
