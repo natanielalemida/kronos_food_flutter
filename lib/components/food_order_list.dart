@@ -288,6 +288,8 @@ class _FoodOrderListState extends State<FoodOrderList> {
         .where((action) => action.action != 'cancelar')
         .firstOrNull;
     final notice = widget.attention[order.darcapioOrder?.id];
+    final reserveActionSpace =
+        widget.kanban && !['concluido', 'cancelado'].contains(order.status);
     final textScale = (MediaQuery.textScalerOf(context).scale(14) / 14)
         .clamp(1.0, double.infinity);
     final metadata = Wrap(
@@ -315,9 +317,8 @@ class _FoodOrderListState extends State<FoodOrderList> {
         child: InkWell(
           onTap: () => widget.onSelected(order.key),
           child: Container(
-              // Keep kanban rows and action footers aligned, including cards
-              // with unread messages or no available action.
-              height: widget.kanban ? 280 * textScale : null,
+              // Align active kanban cards; terminal cards fit their content.
+              height: reserveActionSpace ? 280 * textScale : null,
               decoration: BoxDecoration(
                   border: Border(left: BorderSide(color: accent, width: 4))),
               child: Padding(
@@ -348,7 +349,7 @@ class _FoodOrderListState extends State<FoodOrderList> {
                               FoodSourceBadge(order.source)
                             ]),
                         const SizedBox(height: 8),
-                        if (notice != null || widget.kanban)
+                        if (notice != null || reserveActionSpace)
                           Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Tooltip(
@@ -368,7 +369,7 @@ class _FoodOrderListState extends State<FoodOrderList> {
                             style: const TextStyle(
                                 color: OrderStyle.ink, fontSize: 13)),
                         const SizedBox(height: 11),
-                        if (widget.kanban)
+                        if (reserveActionSpace)
                           Expanded(
                               child: Align(
                                   alignment: Alignment.topLeft,
@@ -430,7 +431,7 @@ class _FoodOrderListState extends State<FoodOrderList> {
                                                 visualDensity: VisualDensity.compact))),
                                   ])),
                         ],
-                        if (next == null && widget.kanban)
+                        if (next == null && reserveActionSpace)
                           SizedBox(height: 23 + 40 * textScale),
                       ]))),
         ),
