@@ -3,6 +3,7 @@ import '../models/pedido_model.dart';
 import '../utils/ifood_event_utils.dart';
 import 'darcapio/order_style.dart';
 import 'food_order_brand.dart';
+import 'customer_order_count.dart';
 
 class OrderDeliveryInfo extends StatelessWidget {
   final PedidoModel order;
@@ -56,6 +57,11 @@ class OrderDeliveryInfo extends StatelessWidget {
                         color: OrderStyle.ink,
                         height: 1.5))),
           ]),
+          if (order.customer.ordersCountOnMerchant != null) ...[
+            const SizedBox(height: 10),
+            CustomerOrderCount(
+                count: order.customer.ordersCountOnMerchant, ifood: true),
+          ],
           if (order.customer.phone.number.isNotEmpty) ...[
             const SizedBox(height: 12),
             OrderMeta(Icons.phone_outlined, order.customer.phone.number),

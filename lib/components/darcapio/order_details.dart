@@ -4,6 +4,7 @@ import '../../repositories/darcapio_repository.dart';
 import '../../models/food_order_entry.dart';
 import '../food_source_badge.dart';
 import '../food_order_heading.dart';
+import '../customer_order_count.dart';
 import 'order_style.dart';
 import '../food_order_progress.dart';
 import 'delivery_map.dart';
@@ -395,6 +396,10 @@ class DarcapioOrderDetails extends StatelessWidget {
                         color: OrderStyle.ink,
                         height: 1.5))),
           ]),
+          if (order.customerOrdersCount != null) ...[
+            const SizedBox(height: 10),
+            CustomerOrderCount(count: order.customerOrdersCount),
+          ],
           const SizedBox(height: 18),
           const Divider(height: 1, color: OrderStyle.line),
           const SizedBox(height: 16),
@@ -554,7 +559,7 @@ class DarcapioOrderDetails extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(9))),
                         icon: Icon(
-                            action.requiresCode
+                            order.requiresCodeFor(action)
                                 ? Icons.verified_outlined
                                 : Icons.arrow_forward,
                             size: 18),

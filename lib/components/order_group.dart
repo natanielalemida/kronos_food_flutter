@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'customer_order_count.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
@@ -253,6 +254,15 @@ class _OrderGroupState extends State<OrderGroup> {
                                         ],
                                       ),
                                       const SizedBox(height: 4),
+                                      if (order
+                                              .customer.ordersCountOnMerchant !=
+                                          null) ...[
+                                        CustomerOrderCount(
+                                            count: order
+                                                .customer.ordersCountOnMerchant,
+                                            ifood: true),
+                                        const SizedBox(height: 4),
+                                      ],
                                       if (widget.statusCode == "PLC") ...[
                                         Row(
                                           children: [

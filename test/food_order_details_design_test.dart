@@ -11,6 +11,7 @@ import 'package:kronos_food/repositories/darcapio_repository.dart';
 PedidoModel previewIfoodOrder(
         {String status = 'CFM',
         bool pickup = false,
+        int? customerOrdersCount,
         String deliveredBy = 'MERCHANT'}) =>
     PedidoModel.fromKronos({
       'Id': 'preview-ifood',
@@ -20,6 +21,7 @@ PedidoModel previewIfoodOrder(
       'OrderType': pickup ? 'TAKEOUT' : 'DELIVERY',
       'SalesChannel': 'IFOOD',
       'Customer': {
+        'OrdersCountOnMerchant': customerOrdersCount,
         'Name': 'Mariana Costa',
         'Phone': {'Number': '0800 705 6070', 'Localizer': '26277959'}
       },
@@ -86,11 +88,14 @@ PedidoModel previewIfoodOrder(
     });
 
 DarcapioOrder previewDarcapioOrder(
-        {String status = 'em_preparo', bool pickup = false}) =>
+        {String status = 'em_preparo',
+        bool pickup = false,
+        int? customerOrdersCount}) =>
     DarcapioOrder(
       id: 'preview-darcapio',
       status: status,
       customer: 'Mariana Costa',
+      customerOrdersCount: customerOrdersCount,
       payment: 'Dinheiro',
       version: 4,
       delivery: 42,

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../utils/customer_order_count.dart';
 
 import 'package:intl/intl.dart';
 import 'package:kronos_food/models/pedido_model.dart';
@@ -35,7 +36,7 @@ String formatDiscountsCompact(List<Benefit> benefits) {
 Future<void> printReceipt(pedido) async {
   final version = await _loadVersion();
   final pdfBytes =
-      await _generateReceipt(PdfPageFormat.roll80, pedido, version);
+      await generateIfoodReceipt(PdfPageFormat.roll80, pedido, version);
 
   final printers = await Printing.listPrinters();
 
@@ -80,14 +81,15 @@ Future<String> _loadVersion() async {
   return '${info.version}+${info.buildNumber}';
 }
 
-Future<Uint8List> _generateReceipt(
-    PdfPageFormat format, pedido, version) async {
+Future<Uint8List> generateIfoodReceipt(
+    PdfPageFormat format, PedidoModel pedido, String version,
+    {pw.Font? regularFont, pw.Font? boldFont}) async {
   final pdf = pw.Document();
 
-  if (pedido == null) return Uint8List(0);
-
-  final font = await PdfGoogleFonts.robotoRegular();
-  final fontBold = await PdfGoogleFonts.robotoBold();
+  final font = regularFont ?? await PdfGoogleFonts.robotoRegular();
+  final fontBold = boldFont ?? await PdfGoogleFonts.robotoBold();
+  final countLabel =
+      customerOrderCountLabel(pedido.customer.ordersCountOnMerchant);
 
   pw.Widget _receiptLine(String label, double value, {required pw.Font font}) {
     return pw.Row(
@@ -143,6 +145,9 @@ Future<Uint8List> _generateReceipt(
                 ),
                 pw.Text('Cliente: ${pedido.customer.name}',
                     style: pw.TextStyle(font: font, fontSize: 8)),
+                if (countLabel != null)
+                  pw.Text(countLabel,
+                      style: pw.TextStyle(font: fontBold, fontSize: 8)),
                 pw.Text('Tel: ${pedido.customer.phone.number}',
                     style: pw.TextStyle(font: font, fontSize: 8)),
                 if (pedido.delivery.pickupCode.trim().isNotEmpty)
@@ -217,7 +222,7 @@ Future<Uint8List> _generateReceipt(
                           ),
                         );
                       }),
-                      if (item.observations != null)
+                      if (item.observations.trim().isNotEmpty)
                         pw.Text(
                           'Obs: ${item.observations}',
                           style: pw.TextStyle(font: font, fontSize: 7),
@@ -292,14 +297,14 @@ Future<Uint8List> _generateReceipt(
                     style: pw.TextStyle(font: font, fontSize: 8),
                   ),
                   pw.Text(
-                    'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber ?? 'S/N'}',
+                    'Endereço: ${pedido.delivery.deliveryAddress.streetName}, ${pedido.delivery.deliveryAddress.streetNumber.isEmpty ? 'S/N' : pedido.delivery.deliveryAddress.streetNumber}',
                     style: pw.TextStyle(font: font, fontSize: 8),
                   ),
                   pw.Text(
                     'Comp: ${pedido.delivery.deliveryAddress.complement}',
                     style: pw.TextStyle(font: font, fontSize: 8),
                   ),
-                  if (pedido.delivery.deliveryAddress.reference != null)
+                  if (pedido.delivery.deliveryAddress.reference.isNotEmpty)
                     pw.Text('Ref: ${pedido.delivery.deliveryAddress.reference}',
                         style: pw.TextStyle(font: font, fontSize: 7)),
                   pw.Text(

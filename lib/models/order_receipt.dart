@@ -1,5 +1,6 @@
 import '../repositories/darcapio_repository.dart';
 import 'pedido_model.dart';
+import '../utils/customer_order_count.dart';
 
 typedef ReceiptAmount = ({String label, double value});
 
@@ -23,6 +24,10 @@ class OrderReceipt {
   final List<String> deliveryLines, documentLines;
   final double subtotal, deliveryFee, additionalFees, total, prepaid, pending;
   final double? changeFor;
+  final int? customerOrdersCount;
+
+  String? get customerOrdersLabel =>
+      customerOrderCountLabel(customerOrdersCount);
 
   const OrderReceipt({
     required this.number,
@@ -47,6 +52,7 @@ class OrderReceipt {
     this.additionalFees = 0,
     this.prepaid = 0,
     this.changeFor,
+    this.customerOrdersCount,
   });
 
   factory OrderReceipt.fromDarcapio(DarcapioOrder order, {String? storeName}) {
@@ -64,6 +70,7 @@ class OrderReceipt {
       store: storeName ?? '',
       fulfillment: order.pickup ? 'RETIRADA' : 'ENTREGA',
       customer: order.customer,
+      customerOrdersCount: order.customerOrdersCount,
       created: order.created,
       pickup: order.pickup,
       items: order.items
@@ -120,6 +127,7 @@ class OrderReceipt {
       store: order.merchant.name,
       fulfillment: pickup ? 'RETIRADA' : order.orderType,
       customer: order.customer.name,
+      customerOrdersCount: order.customer.ordersCountOnMerchant,
       phone: order.customer.phone.number,
       created: order.createdAt,
       expectedDelivery: pickup ? null : order.delivery.deliveryDateTime,

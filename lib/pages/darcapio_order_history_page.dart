@@ -297,7 +297,16 @@ String darcapioMovementCsv(int movement, Iterable<DarcapioOrder> orders) {
   }
 
   return [
-    ['Movimento', 'Pedido', 'Data', 'Cliente', 'Modalidade', 'Status', 'Total'],
+    [
+      'Movimento',
+      'Pedido',
+      'Data',
+      'Cliente',
+      'Modalidade',
+      'Status',
+      'Total',
+      'Pedidos do cliente na loja'
+    ],
     ...orders.map((order) => [
           movement,
           order.delivery,
@@ -305,7 +314,8 @@ String darcapioMovementCsv(int movement, Iterable<DarcapioOrder> orders) {
           order.customer,
           order.pickup ? 'Retirada' : 'Entrega',
           order.label,
-          order.total.toStringAsFixed(2).replaceAll('.', ',')
+          order.total.toStringAsFixed(2).replaceAll('.', ','),
+          order.customerOrdersCount ?? '',
         ]),
   ].map((row) => row.map(cell).join(';')).join('\r\n');
 }

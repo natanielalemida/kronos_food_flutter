@@ -30,6 +30,9 @@ class FoodOrderEntry {
       ifoodOrder?.displayId ??
       darcapioOrder!.delivery.toString().padLeft(4, '0');
   String get customer => ifoodOrder?.customer.name ?? darcapioOrder!.customer;
+  int? get customerOrdersCount => ifoodOrder != null
+      ? ifoodOrder!.customer.ordersCountOnMerchant
+      : darcapioOrder!.customerOrdersCount;
   double get total => ifoodOrder?.total.orderAmount ?? darcapioOrder!.total;
   DateTime get created => ifoodOrder?.createdAt ?? darcapioOrder!.created;
   bool get pickup => ifoodOrder != null

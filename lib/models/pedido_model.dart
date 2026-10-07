@@ -1,6 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
 import 'dart:convert';
+import '../utils/customer_order_count.dart';
 
 import 'package:kronos_food/models/event_model.dart';
 import 'package:kronos_food/utils/app_logger.dart';
@@ -656,7 +657,7 @@ class Customer {
   final String name;
   final String documentNumber;
   final Phone phone;
-  final int ordersCountOnMerchant;
+  final int? ordersCountOnMerchant;
   final String segmentation;
 
   Customer({
@@ -676,7 +677,8 @@ class Customer {
       phone: json['Phone'] != null
           ? Phone.fromKronos(json['Phone'])
           : Phone.empty(),
-      ordersCountOnMerchant: json['OrdersCountOnMerchant'] ?? 0,
+      ordersCountOnMerchant:
+          parseCustomerOrderCount(json['OrdersCountOnMerchant']),
       segmentation: json['Segmentation'] ?? '',
     );
   }
@@ -687,7 +689,8 @@ class Customer {
       documentNumber: json['documentNumber'] ?? '',
       phone:
           json['phone'] != null ? Phone.fromJson(json['phone']) : Phone.empty(),
-      ordersCountOnMerchant: json['ordersCountOnMerchant'] ?? 0,
+      ordersCountOnMerchant:
+          parseCustomerOrderCount(json['ordersCountOnMerchant']),
       segmentation: json['segmentation'] ?? '',
     );
   }
@@ -709,7 +712,8 @@ class Customer {
       name: map['name'] as String,
       documentNumber: map['documentNumber'] as String,
       phone: Phone.fromMap(map['phone'] as Map<String, dynamic>),
-      ordersCountOnMerchant: map['ordersCountOnMerchant'] as int,
+      ordersCountOnMerchant:
+          parseCustomerOrderCount(map['ordersCountOnMerchant']),
       segmentation: map['segmentation'] as String,
     );
   }
@@ -721,7 +725,7 @@ class Customer {
       name: '',
       documentNumber: '',
       phone: Phone.empty(),
-      ordersCountOnMerchant: 0,
+      ordersCountOnMerchant: null,
       segmentation: '',
     );
   }

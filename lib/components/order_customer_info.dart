@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/models/pedido_model.dart';
+import 'customer_order_count.dart';
 
 class OrderCustomerInfo extends StatelessWidget {
   final PedidoModel order;
@@ -46,17 +47,12 @@ class OrderCustomerInfo extends StatelessWidget {
             Text("Telefone: ${order.customer.phone.number}"),
             if (order.customer.documentNumber.isNotEmpty)
               Text("Documento: ${order.customer.documentNumber}"),
-            if (order.customer.ordersCountOnMerchant > 0)
-              Text(
-                "Cliente fiel: ${order.customer.ordersCountOnMerchant} pedidos anteriores",
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            if (order.customer.ordersCountOnMerchant != null)
+              CustomerOrderCount(
+                  count: order.customer.ordersCountOnMerchant, ifood: true),
           ],
         ],
       ),
     );
   }
-} 
+}

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import '../utils/customer_order_count.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import '../service/preferences_service.dart';
@@ -81,6 +82,7 @@ class DarcapioOrder {
   final double? changeFor;
   final Map<String, dynamic>? address;
   final int? courierCode;
+  final int? customerOrdersCount;
   final String? courierName;
   final String? cancellationReason;
   DarcapioOrder(
@@ -100,6 +102,7 @@ class DarcapioOrder {
       this.changeFor,
       this.address,
       this.courierCode,
+      this.customerOrdersCount,
       this.courierName,
       this.cancellationReason});
   factory DarcapioOrder.fromJson(Map<String, dynamic> json) {
@@ -115,6 +118,8 @@ class DarcapioOrder {
             'Pagamento na retirada',
         version: (darcapioField(json, 'versaoStatus') as num).toInt(),
         courierCode: (darcapioField(json, 'codigoEntregador') as num?)?.toInt(),
+        customerOrdersCount: parseCustomerOrderCount(
+            darcapioField(json, 'pedidosClienteNaLoja')),
         courierName: darcapioField(json, 'nomeEntregador') as String?,
         cancellationReason: cancellations.isEmpty
             ? null
@@ -138,6 +143,8 @@ class DarcapioOrder {
             .toList());
   }
   String get label => darcapioStatusLabel(status);
+  bool requiresCodeFor(DarcapioAction action) =>
+      action.requiresCode || (pickup && action.action == 'concluir');
 }
 
 class DarcapioRepository {

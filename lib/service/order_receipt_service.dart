@@ -55,6 +55,8 @@ Future<Uint8List> generateOrderReceipt(OrderReceipt receipt,
         if (receipt.expectedDelivery != null)
           text('Entrega: ${date(receipt.expectedDelivery!)}'),
         text('Cliente: ${receipt.customer}'),
+        if (receipt.customerOrdersLabel != null)
+          text(receipt.customerOrdersLabel!, strong: true),
         if (receipt.phone.isNotEmpty) text('Tel: ${receipt.phone}'),
         if (receipt.pickupCode.trim().isNotEmpty)
           text('Codigo de coleta: ${receipt.pickupCode.trim()}',

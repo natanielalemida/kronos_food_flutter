@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kronos_food/components/darcapio/order_details.dart';
 import 'package:kronos_food/components/food_order_list.dart';
 import 'package:kronos_food/models/food_order_entry.dart';
 import 'package:kronos_food/pages/food_orders_view.dart';
@@ -11,11 +13,22 @@ import 'darcapio_test.dart' show FakeDarcapio, order;
 class CardFlowRepository extends FakeDarcapio {
   final String resultStatus;
   String? actionTaken;
+  String? expectedCode;
   CardFlowRepository(this.resultStatus);
 
   @override
   Future<void> advance(DarcapioOrder value, DarcapioAction action,
       {String? code, int? courierCode, String? reason}) async {
+    if (expectedCode != null && code != expectedCode) {
+      final request = RequestOptions(path: '/status');
+      throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.badResponse,
+          response: Response(requestOptions: request, statusCode: 400, data: {
+            'codigo': 'codigo_incorreto',
+            'mensagem': 'Código incorreto. Confira com o cliente.',
+          }));
+    }
     actionTaken = action.action;
     await super.advance(value, action,
         code: code, courierCode: courierCode, reason: reason);
@@ -51,8 +64,9 @@ void main() {
     });
 
     for (final details in [false, true]) {
+      if (pickup) continue;
       testWidgets(
-          'Conclui sem código conforme contrato Food; retirada: $pickup; detalhes: $details',
+          'Entrega conclui sem código conforme contrato Food; detalhes: $details',
           (tester) async {
         final repository = CardFlowRepository('concluido')
           ..current = order(pickup ? 'pronto_retirada' : 'saiu_para_entrega', 4,
@@ -126,6 +140,65 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
+  }
+
+  for (final requiresCode in [false, true]) {
+    for (final details in [false, true]) {
+      for (final kanban in [false, true]) {
+        testWidgets(
+            'Retirada exige código e permite corrigir erro; contrato: $requiresCode; detalhes: $details; kanban: $kanban',
+            (tester) async {
+          final repository = CardFlowRepository('concluido')
+            ..expectedCode = '012345'
+            ..current = order('pronto_retirada', 4, pickup: true, actions: [
+              DarcapioAction('concluir', 'Confirmar retirada',
+                  requiresCode: requiresCode),
+            ]);
+          await openOrders(tester, repository,
+              details: details, kanban: kanban);
+          final withdrawalAction = details
+              ? find.descendant(
+                  of: find.byType(DarcapioOrderDetails),
+                  matching: find.text('Confirmar retirada'))
+              : find.text('Confirmar retirada');
+          await tester.tap(withdrawalAction);
+          await tester.pumpAndSettle();
+          final input = find.widgetWithText(TextField, 'Código do cliente');
+          final confirm = find.widgetWithText(FilledButton, 'Confirmar');
+          expect(input, findsOneWidget);
+          expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+          await tester.enterText(input, '12345');
+          await tester.pump();
+          expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+          expect(repository.accepted, 0);
+          await tester.tap(find.text('Voltar'));
+          await tester.pumpAndSettle();
+          expect(repository.accepted, 0);
+
+          await tester.tap(withdrawalAction);
+          await tester.pumpAndSettle();
+          await tester.enterText(input, '111111');
+          await tester.pump();
+          await tester.tap(confirm);
+          await tester.pumpAndSettle();
+          expect(find.text('Código incorreto'), findsOneWidget);
+          expect(repository.current.status, 'pronto_retirada');
+          expect(repository.accepted, 0);
+          await tester.enterText(input, '012345');
+          await tester.pump();
+          await tester
+              .tap(find.widgetWithText(FilledButton, 'Conferir novamente'));
+          await tester.pumpAndSettle();
+          expect(repository.actionTaken, 'concluir');
+          expect(repository.receivedCode, '012345');
+          expect(repository.accepted, 1);
+          expect(repository.current.status, 'concluido');
+          expect(find.byType(AlertDialog), findsNothing);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        });
+      }
+    }
   }
 
   testWidgets('Cartão despacha somente após selecionar o entregador',
@@ -206,7 +279,7 @@ void main() {
 }
 
 Future<void> openOrders(WidgetTester tester, FakeDarcapio repository,
-    {bool details = false}) async {
+    {bool details = false, bool kanban = true}) async {
   tester.view.physicalSize = const Size(1200, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -214,7 +287,7 @@ Future<void> openOrders(WidgetTester tester, FakeDarcapio repository,
   await tester.pumpWidget(MaterialApp(
       home: FoodOrdersView(
           repository: repository,
-          kanban: true,
+          kanban: kanban,
           initialOrderKey:
               details ? 'darcapio-order-${repository.current.id}' : null)));
   await tester.pumpAndSettle();

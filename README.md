@@ -14,6 +14,26 @@ Relatório: `E:/ARC-SOLUTION/docs/kronos-food-entregadores-20260915.md`.
 
 ## Pedidos integrados no Kronos Food
 
+Cards, detalhes, histórico e cupons mostram **X pedidos na loja** ao lado dos
+dados do cliente. No Darcapio, o Service conta todo o histórico já recebido da
+conta naquela empresa, incluindo o pedido atual e os concluídos, sem limitar ao
+movimento de caixa. Cancelados e recusados (persistidos como `cancelado`) ficam
+fora. A contagem é recalculada a cada consulta; pedidos antigos mostram o total
+atual do cliente. O CSV do histórico também inclui essa coluna.
+
+No iFood, o app preserva `customer.ordersCountOnMerchant`, sem somar um pedido.
+A [documentação do iFood](https://developer.ifood.com.br/en-US/docs/food/guides/modules/order/details)
+define a janela como os últimos cinco anos. O cupom manual e o automático
+imprimem a contagem. Dado ausente é omitido, e zero informado continua sendo zero.
+
+Atualizar o KronosServices da árvore `ArcSolution_Services_Desenvolvimento` com
+o campo opcional `PedidosClienteNaLoja` no contrato Food e a ArcSolutionLib com
+`OrdersCountOnMerchant` anulável, além do Flutter Windows. Não há migration;
+clientes e pedidos existentes já permitem calcular o histórico Darcapio.
+Servidores antigos continuam funcionando e apenas não exibem a contagem Darcapio.
+Verificação: `flutter test test/customer_order_count_test.dart` e
+`ContagemPedidosClienteTests` no projeto `KronosServices.Darcapio.Tests`.
+
 O botão **Entrar** autentica no Kronos Food e já libera o Darcapio com a mesma
 sessão. Não há botão nem formulário de login separado para o Darcapio. Pedidos
 iFood e Darcapio aparecem juntos, agrupados por etapa, tanto na lista quanto no
@@ -49,12 +69,15 @@ As ações continuam vindo do servidor, que deve ser atualizado junto com o Food
 Os cartões Darcapio mostram **Aceitar** e **Recusar** durante o aceite. Depois,
 mostram a próxima ação permitida: **Marcar como pronto**, **Marcar em rota de
 entrega** e **Marcar como concluído**. Na retirada, **Pronto** oferece **Confirmar
-retirada**. Despacho exige escolher o entregador. No Kronos Food, a conclusão de
-entrega ou retirada pede apenas a confirmação do operador, sem código do cliente.
-O app do entregador continua exigindo o código. O cancelamento das demais etapas
-continua disponível nos detalhes. É necessário atualizar o Kronos Service, que
-envia `ExigeCodigo: false` na ação de conclusão e autoriza essa dispensa somente
-na rota autenticada do Food; versões antigas do Service ainda solicitam o código.
+retirada**. Despacho exige escolher o entregador. A retirada exige o código de
+6 dígitos apresentado pelo cliente no Darcapio, tanto nos cartões quanto nos
+detalhes. Código vazio, incompleto ou incorreto não conclui o pedido; o operador
+pode corrigir o código na mesma janela. O Service valida o código e mantém o
+bloqueio após cinco tentativas incorretas. Food e Service precisam ser atualizados
+juntos. Na entrega, o Food segue a exigência enviada pelo Service; o app do
+entregador continua conferindo o código. O cancelamento das demais etapas
+continua disponível nos detalhes. A dispensa `ExigeCodigo: false` é oferecida
+somente para entregas na rota autenticada do Food.
 Verificação: `flutter test test/food_order_card_actions_test.dart`.
 
 O botão **Imprimir pedido**, ao lado do status nos detalhes, está disponível nos
@@ -83,8 +106,9 @@ existentes; não lê nem armazena uma senha adicional.
 
 O servidor exige sessão da aplicação Kronos Food 2 (9), empresa e permissões de
 Delivery. As ações vêm em `AcoesPermitidas`, calculadas pelo Kronos Service,
-incluindo entrega e retirada. O cliente envia o comando e a versão; a conclusão
-pelo Food não precisa de `CodigoConfirmacao`. O Service mantém as validações de
+incluindo entrega e retirada. O cliente envia o comando e a versão; a retirada
+inclui `CodigoConfirmacao`, conferido no Service antes do faturamento. A entrega
+pelo Food pode dispensar esse campo. O Service mantém as validações de
 etapa, versão, empresa e privilégios e registra o operador no histórico.
 Endereço, taxa e troco são exibidos no pedido. O código correto nunca vem na
 listagem Food. Recusa/cancelamento exige motivo e permissão do servidor.

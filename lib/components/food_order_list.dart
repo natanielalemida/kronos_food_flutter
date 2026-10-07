@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/food_order_entry.dart';
 import 'food_source_badge.dart';
 import 'food_fulfillment_badge.dart';
+import 'customer_order_count.dart';
 import 'darcapio/order_style.dart';
 import 'food_order_brand.dart';
 import '../repositories/darcapio_repository.dart';
@@ -368,6 +369,12 @@ class _FoodOrderListState extends State<FoodOrderList> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: OrderStyle.ink, fontSize: 13)),
+                        if (order.customerOrdersCount != null) ...[
+                          const SizedBox(height: 5),
+                          CustomerOrderCount(
+                              count: order.customerOrdersCount,
+                              ifood: order.source == FoodOrderSource.ifood),
+                        ],
                         const SizedBox(height: 11),
                         if (reserveActionSpace)
                           Expanded(

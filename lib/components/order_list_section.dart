@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'customer_order_count.dart';
 import 'package:intl/intl.dart';
 import 'package:kronos_food/components/order_group.dart';
 import 'package:kronos_food/consts.dart';
@@ -205,6 +206,15 @@ class OrderListSection extends StatelessWidget {
                                           ],
                                         ),
                                         const SizedBox(height: 4),
+                                        if (order.customer
+                                                .ordersCountOnMerchant !=
+                                            null) ...[
+                                          CustomerOrderCount(
+                                              count: order.customer
+                                                  .ordersCountOnMerchant,
+                                              ifood: true),
+                                          const SizedBox(height: 4),
+                                        ],
                                         if (order.schedule
                                                     .deliveryDateTimeStart !=
                                                 null &&

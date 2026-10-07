@@ -6,7 +6,8 @@ import 'package:kronos_food/repositories/darcapio_repository.dart';
 import 'package:kronos_food/service/order_receipt_service.dart';
 import 'food_order_details_design_test.dart' show previewIfoodOrder;
 
-DarcapioOrder deliveryOrder({bool lowercase = false, bool pickup = false}) {
+DarcapioOrder deliveryOrder(
+    {bool lowercase = false, bool pickup = false, int? customerOrdersCount}) {
   Map<String, dynamic> fields(Map<String, dynamic> values) => lowercase
       ? values.map((key, value) => MapEntry(key.toLowerCase(), value))
       : values;
@@ -16,6 +17,7 @@ DarcapioOrder deliveryOrder({bool lowercase = false, bool pickup = false}) {
     'Situacao': 'saiu_para_entrega',
     'VersaoStatus': 4,
     'ClienteNome': 'Cliente de teste',
+    'PedidosClienteNaLoja': customerOrdersCount,
     'FormaPagamento': 'Dinheiro',
     'CriadoEm': '2026-09-30T14:00:00Z',
     'NomeEntregador': 'Carlos - Teste',

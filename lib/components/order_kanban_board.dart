@@ -4,6 +4,7 @@ import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/controllers/pedidos_controller.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import 'package:kronos_food/utils/ifood_event_utils.dart';
+import 'customer_order_count.dart';
 
 enum KanbanOrderAction {
   details,
@@ -511,6 +512,12 @@ class _KanbanOrderCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (order.customer.ordersCountOnMerchant != null) ...[
+                      const SizedBox(height: 5),
+                      CustomerOrderCount(
+                          count: order.customer.ordersCountOnMerchant,
+                          ifood: true),
+                    ],
                     const SizedBox(height: 9),
                     Row(
                       children: [
