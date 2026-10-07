@@ -137,8 +137,15 @@ com `dart run tool/check_ifood_windows_credential.dart <clientId>`.
 distribuídos, use `IFOOD_AUTH_MODE=distributed`: o primeiro acesso depende do
 código autorizado no Portal do Parceiro. O código retornado pelo portal e o
 verificador da mesma solicitação são trocados por tokens; informar somente o ID
-da loja não realiza essa troca. A autorização inicial ainda não está integrada
-à tela de configurações e precisa ser provisionada na instalação.
+da loja não realiza essa troca. Use **Conectar iFood** no painel de pedidos ou
+no menu lateral para autorizar a loja. O Food mostra o código e o link do Portal,
+recebe o código de autorização e salva os tokens sem alterar a sessão Kronos.
+Se a autorização expirar ou for revogada, esse mesmo fluxo permite reconectar.
+
+Para gerar a build Windows com o aplicativo e a loja de homologação, execute
+`tool/build_ifood_homologacao.ps1`. O arquivo público
+`config/ifood_homologacao.json` fixa o modo distribuído desse Client ID e não
+contém o segredo; a credencial continua sendo instalada por usuário Windows.
 
 Depois de salvar a autorização, o Food reutiliza o token válido e renova com
 `refresh_token` quando ele está próximo de expirar. Consultas simultâneas
@@ -146,7 +153,7 @@ compartilham a renovação em andamento. Se o iFood não devolver outro refresh
 token, o anterior é preservado. Não há fallback para `client_credentials` no
 modo distribuído sem autorização.
 
-Verificação: `flutter test test/ifood_auth_repository_test.dart test/food_login_test.dart`.
+Verificação: `flutter test test/ifood_auth_repository_test.dart test/ifood_connection_test.dart test/food_login_test.dart`.
 
 ## Integração iFood — requisitos anteriores
 

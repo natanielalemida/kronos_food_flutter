@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kronos_food/consts.dart';
 import 'package:kronos_food/components/ifood_chat_dialog.dart';
+import 'package:kronos_food/components/ifood_connection_dialog.dart';
 import 'package:kronos_food/models/pedido_model.dart';
 import 'package:kronos_food/pages/config_page.dart';
 import 'package:kronos_food/repositories/auth_repository.dart';
@@ -24,12 +25,14 @@ class PedidosPage extends StatefulWidget {
   final String? orderIdSelected;
   final PedidosController? controller;
   final DarcapioRepository? darcapioRepository;
+  final AuthRepository? ifoodAuthRepository;
 
   const PedidosPage({
     super.key,
     this.orderIdSelected,
     this.controller,
     this.darcapioRepository,
+    this.ifoodAuthRepository,
   });
 
   @override
@@ -44,6 +47,7 @@ class _PedidosPageState extends State<PedidosPage> {
   bool _kanbanMode = false;
   bool _isSharingLogs = false;
   bool _initialSelectionApplied = false;
+  bool _connectingIfood = false;
   final PreferencesService _preferencesService = PreferencesService();
   final OrderActionsService _orderActionsService =
       OrderActionsService(AuthRepository());
@@ -110,6 +114,23 @@ class _PedidosPageState extends State<PedidosPage> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
+  }
+
+  Future<void> _connectIfood() async {
+    if (_connectingIfood || controller.isLoading) return;
+    setState(() => _connectingIfood = true);
+    try {
+      final authorized = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => IfoodConnectionDialog(
+          repository: widget.ifoodAuthRepository ?? AuthRepository(),
+        ),
+      );
+      if (authorized == true && mounted) await controller.init(context);
+    } finally {
+      if (mounted) setState(() => _connectingIfood = false);
+    }
   }
 
   Future<void> _shareLogs() async {
@@ -365,6 +386,16 @@ class _PedidosPageState extends State<PedidosPage> {
               },
             ),
             const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.link_outlined),
+              title: const Text('Conectar iFood'),
+              subtitle: const Text('Autorizar ou reconectar a loja'),
+              enabled: !_connectingIfood && !controller.isLoading,
+              onTap: () {
+                Navigator.pop(context);
+                unawaited(_connectIfood());
+              },
+            ),
             SwitchListTile(
               title: const Text('Aceitar automático'),
               subtitle: const Text('Preferência geral de recebimento'),
@@ -432,6 +463,7 @@ class _PedidosPageState extends State<PedidosPage> {
           ifoodOrders:
               controller.pedidosMap.values.expand((orders) => orders).toList(),
           ifoodLoading: controller.isLoading,
+          onConnectIfood: _connectingIfood ? null : _connectIfood,
           ifoodConnected: !controller.isLoading &&
               !controller.haveError &&
               controller.merchantStatus.value != MerchantStatus.error,

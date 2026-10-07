@@ -1318,6 +1318,10 @@ class PedidosController extends ValueNotifier<List<dynamic>> {
   }
 
   Future<void> init(BuildContext context) async {
+    timerMake?.cancel();
+    cleanupTimer?.cancel();
+    timerMake = null;
+    cleanupTimer = null;
     isLoading = true;
     haveError = false;
     errorMsg = '';
