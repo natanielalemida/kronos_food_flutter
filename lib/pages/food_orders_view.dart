@@ -26,7 +26,6 @@ class FoodOrdersView extends StatefulWidget {
   final ValueChanged<PedidoModel>? onIfoodSelected;
   final Widget Function(PedidoModel)? ifoodDetailsBuilder;
   final Future<void> Function()? onRefreshIfood;
-  final VoidCallback? onConnectIfood;
   final Widget? drawer;
   final String? initialOrderKey;
   const FoodOrdersView({
@@ -40,7 +39,6 @@ class FoodOrdersView extends StatefulWidget {
     this.onIfoodSelected,
     this.ifoodDetailsBuilder,
     this.onRefreshIfood,
-    this.onConnectIfood,
     this.drawer,
     this.initialOrderKey,
   });
@@ -460,13 +458,6 @@ class _FoodOrdersViewState extends State<FoodOrdersView> {
                     if (widget.ifoodDetailsBuilder != null)
                       connection(
                           'iFood', widget.ifoodLoading, widget.ifoodConnected),
-                    if (widget.onConnectIfood != null && !widget.ifoodConnected)
-                      TextButton.icon(
-                        onPressed:
-                            widget.ifoodLoading ? null : widget.onConnectIfood,
-                        icon: const Icon(Icons.link_outlined, size: 17),
-                        label: const Text('Conectar iFood'),
-                      ),
                   ]),
             ),
             if (error != null)
