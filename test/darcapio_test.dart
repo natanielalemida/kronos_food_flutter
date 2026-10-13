@@ -76,6 +76,49 @@ class FakeDarcapio extends DarcapioRepository {
 void main() {
   for (final pickup in [false, true]) {
     testWidgets(
+        'confirmação do cliente atualiza a conclusão automaticamente no Food: retirada=$pickup',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fake = FakeDarcapio()
+        ..current = order(pickup ? 'pronto_retirada' : 'saiu_para_entrega', 5,
+            pickup: pickup,
+            actions: [
+              const DarcapioAction('concluir', 'Confirmar recebimento')
+            ]);
+      await tester.pumpWidget(MaterialApp(
+          home: FoodOrdersView(
+              repository: fake,
+              initialOrderKey:
+                  'darcapio-order-00000000-0000-0000-0000-000000000123')));
+      await tester.pumpAndSettle();
+      expect(
+          tester
+              .widget<DarcapioOrderDetails>(find.byType(DarcapioOrderDetails))
+              .order
+              .status,
+          pickup ? 'pronto_retirada' : 'saiu_para_entrega');
+
+      fake.current = order('concluido', 6, pickup: pickup);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      final details = tester
+          .widget<DarcapioOrderDetails>(find.byType(DarcapioOrderDetails));
+      expect(details.order.status, 'concluido');
+      expect(details.order.label, 'Concluído');
+      expect(find.text('Confirmar recebimento'), findsNothing);
+      expect(fake.accepted, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  for (final pickup in [false, true]) {
+    testWidgets(
         'Código incorreto permanece em destaque e permite corrigir na ${pickup ? 'retirada' : 'entrega'}',
         (tester) async {
       tester.view.physicalSize = const Size(1200, 1000);
